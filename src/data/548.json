@@ -1,0 +1,510 @@
+{
+    "gameData": {
+        "remit": [
+            [
+                {
+                    "id": 6,
+                    "name": "Brazil",
+                    "type": 1,
+                    "displayName": "BRA"
+                }
+            ],
+            [
+                {
+                    "id": 316,
+                    "name": "Zlatan Ibrahimović",
+                    "type": 5,
+                    "displayName": "Ibrahimović"
+                }
+            ],
+            [
+                {
+                    "id": 41,
+                    "name": "Cote d'Ivoire",
+                    "type": 1,
+                    "displayName": "CIV"
+                }
+            ],
+            [
+                {
+                    "id": 373,
+                    "name": "Scottish Premiership",
+                    "type": 3,
+                    "displayName": "Scottish Top Div",
+                    "dataFrom": "1997/98"
+                }
+            ],
+            [
+                {
+                    "id": 160,
+                    "name": "Real Madrid",
+                    "type": 2,
+                    "displayName": "RMA"
+                }
+            ],
+            [
+                {
+                    "id": 12,
+                    "name": "Italy",
+                    "type": 1,
+                    "displayName": "ITA"
+                }
+            ],
+            [
+                {
+                    "id": 6,
+                    "name": "Brazil",
+                    "type": 1,
+                    "displayName": "BRA"
+                },
+                {
+                    "id": 99,
+                    "name": "Inter Milan",
+                    "type": 2,
+                    "displayName": "INT"
+                }
+            ],
+            [
+                {
+                    "id": 356,
+                    "name": "Copa América",
+                    "type": 6,
+                    "displayName": "Copa América",
+                    "dataFrom": "1960"
+                }
+            ],
+            [
+                {
+                    "id": 352,
+                    "name": "Champions League",
+                    "type": 6,
+                    "displayName": "Champions Lge",
+                    "dataFrom": "1992/93"
+                }
+            ],
+            [
+                {
+                    "id": 374,
+                    "name": "Europa League",
+                    "type": 6,
+                    "displayName": "Europa Lge",
+                    "dataFrom": "2009/10"
+                }
+            ],
+            [
+                {
+                    "id": 123,
+                    "name": "River Plate",
+                    "type": 2,
+                    "displayName": "RIV"
+                }
+            ],
+            [
+                {
+                    "id": 99,
+                    "name": "Inter Milan",
+                    "type": 2,
+                    "displayName": "INT"
+                }
+            ],
+            [
+                {
+                    "id": 204,
+                    "name": "Manchester United",
+                    "type": 2,
+                    "displayName": "MUN"
+                }
+            ],
+            [
+                {
+                    "id": 1,
+                    "name": "England",
+                    "type": 1,
+                    "displayName": "ENG"
+                }
+            ],
+            [
+                {
+                    "id": 300,
+                    "name": "Sir Alex Ferguson",
+                    "type": 4,
+                    "displayName": "Ferguson"
+                }
+            ],
+            [
+                {
+                    "id": 84,
+                    "name": "Arsenal",
+                    "type": 2,
+                    "displayName": "ARS"
+                }
+            ]
+        ],
+        "players": [
+            {
+                "id": 3202,
+                "f": "Toure",
+                "g": "Kolo",
+                "v": [
+                    41,
+                    84,
+                    373
+                ]
+            },
+            {
+                "id": 230784,
+                "f": "Partey",
+                "g": "Thomas",
+                "v": [
+                    84,
+                    374
+                ]
+            },
+            {
+                "id": 37579,
+                "f": "Alexandre Pato",
+                "g": "",
+                "v": [
+                    6,
+                    316
+                ]
+            },
+            {
+                "id": 283628,
+                "f": "Soucek",
+                "g": "Tomas",
+                "v": []
+            },
+            {
+                "id": 3163,
+                "f": "Lampard",
+                "g": "Frank",
+                "v": [
+                    1,
+                    352,
+                    374
+                ],
+                "b": "20/06/1978"
+            },
+            {
+                "id": 141660,
+                "f": "Lingard",
+                "g": "Jesse",
+                "v": [
+                    1,
+                    204,
+                    300,
+                    316,
+                    374
+                ]
+            },
+            {
+                "id": 5198,
+                "f": "Cocu",
+                "g": "Phillip",
+                "v": []
+            },
+            {
+                "id": 5283,
+                "f": "Abidal",
+                "g": "Eric",
+                "v": [
+                    316,
+                    352
+                ]
+            },
+            {
+                "id": 111196,
+                "f": "de Vrij",
+                "g": "Stefan",
+                "v": [
+                    99
+                ]
+            },
+            {
+                "id": 294057,
+                "f": "Maddison",
+                "g": "James",
+                "v": [
+                    1,
+                    373
+                ]
+            },
+            {
+                "id": 15511,
+                "f": "Robinho",
+                "g": "",
+                "v": [
+                    6,
+                    160,
+                    316,
+                    356
+                ],
+                "b": "25/01/1984"
+            },
+            {
+                "id": 258923,
+                "f": "Rashford",
+                "g": "Marcus",
+                "v": [
+                    1,
+                    204,
+                    316,
+                    374
+                ]
+            },
+            {
+                "id": 182906,
+                "f": "Maignan",
+                "g": "Mike",
+                "v": [
+                    316
+                ]
+            },
+            {
+                "id": 7520,
+                "f": "Cambiasso",
+                "g": "Esteban",
+                "v": [
+                    99,
+                    123,
+                    160,
+                    316,
+                    352
+                ]
+            },
+            {
+                "id": 284857,
+                "f": "Cucurella",
+                "g": "Marc",
+                "v": []
+            },
+            {
+                "id": 8806,
+                "f": "Fabregas",
+                "g": "Cesc",
+                "v": [
+                    84,
+                    374
+                ]
+            },
+            {
+                "id": 3407,
+                "f": "van Nistelrooy",
+                "g": "Ruud",
+                "v": [
+                    160,
+                    204,
+                    300
+                ]
+            },
+            {
+                "id": 3140,
+                "f": "Ronaldo",
+                "g": "",
+                "v": [
+                    6,
+                    99,
+                    160,
+                    356
+                ]
+            },
+            {
+                "id": 225122,
+                "f": "Guedes",
+                "g": "Goncalo",
+                "v": []
+            },
+            {
+                "id": 187587,
+                "f": "Rebic",
+                "g": "Ante",
+                "v": [
+                    316
+                ]
+            },
+            {
+                "id": 57071,
+                "f": "Gulacsi",
+                "g": "Peter",
+                "v": []
+            },
+            {
+                "id": 581678,
+                "f": "Bellingham",
+                "g": "Jude",
+                "v": [
+                    1,
+                    160,
+                    352
+                ]
+            },
+            {
+                "id": 40433,
+                "f": "Sanchez",
+                "g": "Alexis",
+                "v": [
+                    84,
+                    99,
+                    123,
+                    204,
+                    356
+                ]
+            },
+            {
+                "id": 145988,
+                "f": "Zaha",
+                "g": "Wilfried",
+                "v": [
+                    41,
+                    204
+                ]
+            },
+            {
+                "id": 7518,
+                "f": "Roberto Carlos",
+                "g": "",
+                "v": [
+                    6,
+                    99,
+                    160,
+                    352,
+                    356
+                ]
+            },
+            {
+                "id": 138927,
+                "f": "Carvajal",
+                "g": "Daniel",
+                "v": [
+                    160,
+                    352
+                ]
+            },
+            {
+                "id": 7663,
+                "f": "Joaquin",
+                "g": "",
+                "v": [],
+                "b": "21/07/1981"
+            },
+            {
+                "id": 51471,
+                "f": "Kovacic",
+                "g": "Mateo",
+                "v": [
+                    99,
+                    160,
+                    352,
+                    374
+                ]
+            },
+            {
+                "id": 186590,
+                "f": "Stones",
+                "g": "John",
+                "v": [
+                    1,
+                    352
+                ]
+            },
+            {
+                "id": 91845,
+                "f": "Son",
+                "g": "Heung-min",
+                "v": []
+            },
+            {
+                "id": 375885,
+                "f": "Sangare",
+                "g": "Ibrahim",
+                "v": [
+                    41
+                ]
+            },
+            {
+                "id": 314367,
+                "f": "Edwards",
+                "g": "Marcus",
+                "v": [
+                    1
+                ]
+            },
+            {
+                "id": 126540,
+                "f": "Umtiti",
+                "g": "Samuel",
+                "v": []
+            },
+            {
+                "id": 5817,
+                "f": "Pirlo",
+                "g": "Andrea",
+                "v": [
+                    12,
+                    99,
+                    316,
+                    352
+                ]
+            },
+            {
+                "id": 200512,
+                "f": "Mane",
+                "g": "Sadio",
+                "v": [
+                    352
+                ]
+            },
+            {
+                "id": 50512,
+                "f": "Modeste",
+                "g": "Anthony",
+                "v": []
+            },
+            {
+                "id": 3415,
+                "f": "Salas",
+                "g": "Marcelo",
+                "v": [
+                    123
+                ]
+            },
+            {
+                "id": 4171,
+                "f": "Nesta",
+                "g": "Alessandro",
+                "v": [
+                    12,
+                    316,
+                    352
+                ]
+            },
+            {
+                "id": 321247,
+                "f": "Buendia",
+                "g": "Emiliano",
+                "v": []
+            },
+            {
+                "id": 249565,
+                "f": "Tielemans",
+                "g": "Youri",
+                "v": []
+            },
+            {
+                "id": 20506,
+                "f": "Guardado",
+                "g": "Andres",
+                "v": []
+            },
+            {
+                "id": 46156,
+                "f": "Kolarov",
+                "g": "Aleksandar",
+                "v": [
+                    99
+                ]
+            }
+        ]
+    }
+}

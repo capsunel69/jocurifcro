@@ -1,0 +1,482 @@
+{
+    "gameData": {
+        "remit": [
+            [
+                {
+                    "id": 355,
+                    "name": "Euros",
+                    "type": 6,
+                    "displayName": "Euros"
+                }
+            ],
+            [
+                {
+                    "id": 356,
+                    "name": "Copa América",
+                    "type": 6,
+                    "displayName": "Copa América",
+                    "dataFrom": "1960"
+                }
+            ],
+            [
+                {
+                    "id": 8,
+                    "name": "Netherlands",
+                    "type": 1,
+                    "displayName": "NLD"
+                }
+            ],
+            [
+                {
+                    "id": 10,
+                    "name": "Germany",
+                    "type": 1,
+                    "displayName": "GER"
+                }
+            ],
+            [
+                {
+                    "id": 99,
+                    "name": "Inter Milan",
+                    "type": 2,
+                    "displayName": "INT"
+                }
+            ],
+            [
+                {
+                    "id": 149,
+                    "name": "West Ham United",
+                    "type": 2,
+                    "displayName": "WHU"
+                }
+            ],
+            [
+                {
+                    "id": 6,
+                    "name": "Brazil",
+                    "type": 1,
+                    "displayName": "BRA"
+                },
+                {
+                    "id": 83,
+                    "name": "AC Milan",
+                    "type": 2,
+                    "displayName": "MIL"
+                }
+            ],
+            [
+                {
+                    "id": 167,
+                    "name": "Juventus",
+                    "type": 2,
+                    "displayName": "JUV"
+                }
+            ],
+            [
+                {
+                    "id": 12,
+                    "name": "Italy",
+                    "type": 1,
+                    "displayName": "ITA"
+                }
+            ],
+            [
+                {
+                    "id": 83,
+                    "name": "AC Milan",
+                    "type": 2,
+                    "displayName": "MIL"
+                }
+            ],
+            [
+                {
+                    "id": 87,
+                    "name": "Bayer 04 Leverkusen",
+                    "type": 2,
+                    "displayName": "B04"
+                }
+            ],
+            [
+                {
+                    "id": 339,
+                    "name": "Italian League Top Scorer",
+                    "type": 6,
+                    "displayName": "Italian Top Div Golden Boot",
+                    "dataFrom": "1960/61"
+                }
+            ],
+            [
+                {
+                    "id": 6,
+                    "name": "Brazil",
+                    "type": 1,
+                    "displayName": "BRA"
+                }
+            ],
+            [
+                {
+                    "id": 288,
+                    "name": "Eredivisie",
+                    "type": 3,
+                    "displayName": "Dutch Top Div",
+                    "dataFrom": "1956/57"
+                }
+            ],
+            [
+                {
+                    "id": 303,
+                    "name": "Carlo Ancelotti",
+                    "type": 4,
+                    "displayName": "Ancelotti"
+                }
+            ],
+            [
+                {
+                    "id": 329,
+                    "name": "Franck Ribéry",
+                    "type": 5,
+                    "displayName": "Ribéry"
+                }
+            ]
+        ],
+        "players": [
+            {
+                "id": 187492,
+                "f": "Brandt",
+                "g": "Julian",
+                "v": [
+                    10,
+                    87
+                ]
+            },
+            {
+                "id": 3144,
+                "f": "Keane",
+                "g": "Robbie",
+                "v": [
+                    99,
+                    149
+                ]
+            },
+            {
+                "id": 463603,
+                "f": "Badiashile",
+                "g": "Benoit",
+                "v": []
+            },
+            {
+                "id": 35773,
+                "f": "Vela",
+                "g": "Carlos",
+                "v": []
+            },
+            {
+                "id": 4168,
+                "f": "Seedorf",
+                "g": "Clarence",
+                "v": [
+                    8,
+                    83,
+                    99,
+                    288,
+                    303
+                ]
+            },
+            {
+                "id": 26267,
+                "f": "Fernandinho",
+                "g": "",
+                "v": [
+                    6,
+                    356
+                ],
+                "b": "04/05/1985"
+            },
+            {
+                "id": 3979,
+                "f": "Casillas",
+                "g": "Iker",
+                "v": [
+                    303,
+                    355
+                ]
+            },
+            {
+                "id": 401173,
+                "f": "Sancho",
+                "g": "Jadon",
+                "v": []
+            },
+            {
+                "id": 401923,
+                "f": "Osimhen",
+                "g": "Victor",
+                "v": [
+                    339
+                ]
+            },
+            {
+                "id": 5947,
+                "f": "De Rossi",
+                "g": "Daniele",
+                "v": [
+                    12
+                ]
+            },
+            {
+                "id": 5748,
+                "f": "Tacchinardi",
+                "g": "Alessio",
+                "v": [
+                    12,
+                    167,
+                    303
+                ]
+            },
+            {
+                "id": 294057,
+                "f": "Maddison",
+                "g": "James",
+                "v": []
+            },
+            {
+                "id": 3373,
+                "f": "Ronaldinho",
+                "g": "",
+                "v": [
+                    6,
+                    83,
+                    303,
+                    356
+                ]
+            },
+            {
+                "id": 7825,
+                "f": "Reina",
+                "g": "Pepe",
+                "v": [
+                    83,
+                    329,
+                    355
+                ]
+            },
+            {
+                "id": 13091,
+                "f": "Toure",
+                "g": "Yaya",
+                "v": []
+            },
+            {
+                "id": 371149,
+                "f": "Ndicka",
+                "g": "Evan",
+                "v": []
+            },
+            {
+                "id": 50512,
+                "f": "Modeste",
+                "g": "Anthony",
+                "v": []
+            },
+            {
+                "id": 5980,
+                "f": "Toni",
+                "g": "Luca",
+                "v": [
+                    12,
+                    167,
+                    329,
+                    339
+                ]
+            },
+            {
+                "id": 646740,
+                "f": "Gavi",
+                "g": "",
+                "v": []
+            },
+            {
+                "id": 406040,
+                "f": "Lookman",
+                "g": "Ademola",
+                "v": []
+            },
+            {
+                "id": 27511,
+                "f": "Cahill",
+                "g": "Gary",
+                "v": []
+            },
+            {
+                "id": 357565,
+                "f": "Rodri",
+                "g": "",
+                "v": [
+                    355
+                ],
+                "b": "22/06/1996"
+            },
+            {
+                "id": 316264,
+                "f": "Odegaard",
+                "g": "Martin",
+                "v": [
+                    288,
+                    303
+                ]
+            },
+            {
+                "id": 86202,
+                "f": "Rudiger",
+                "g": "Antonio",
+                "v": [
+                    10,
+                    303
+                ]
+            },
+            {
+                "id": 37579,
+                "f": "Alexandre Pato",
+                "g": "",
+                "v": [
+                    6,
+                    83,
+                    303
+                ]
+            },
+            {
+                "id": 332697,
+                "f": "McKennie",
+                "g": "Weston",
+                "v": [
+                    167
+                ]
+            },
+            {
+                "id": 504215,
+                "f": "Reyna",
+                "g": "Giovanni",
+                "v": []
+            },
+            {
+                "id": 326031,
+                "f": "de Ligt",
+                "g": "Matthijs",
+                "v": [
+                    8,
+                    167,
+                    288
+                ]
+            },
+            {
+                "id": 3875,
+                "f": "Defoe",
+                "g": "Jermain",
+                "v": [
+                    149
+                ]
+            },
+            {
+                "id": 3216,
+                "f": "Baros",
+                "g": "Milan",
+                "v": []
+            },
+            {
+                "id": 22412,
+                "f": "Julio Cesar",
+                "g": "",
+                "v": [
+                    6,
+                    99,
+                    356
+                ],
+                "b": "03/09/1979"
+            },
+            {
+                "id": 33481,
+                "f": "Gervinho",
+                "g": "",
+                "v": []
+            },
+            {
+                "id": 192565,
+                "f": "Sane",
+                "g": "Leroy",
+                "v": [
+                    10
+                ]
+            },
+            {
+                "id": 314353,
+                "f": "Alexander-Arnold",
+                "g": "Trent",
+                "v": []
+            },
+            {
+                "id": 571020,
+                "f": "Sancet",
+                "g": "Oihan",
+                "v": []
+            },
+            {
+                "id": 17259,
+                "f": "Neuer",
+                "g": "Manuel",
+                "v": [
+                    10,
+                    303,
+                    329
+                ]
+            },
+            {
+                "id": 39381,
+                "f": "Bale",
+                "g": "Gareth",
+                "v": [
+                    303
+                ]
+            },
+            {
+                "id": 138927,
+                "f": "Carvajal",
+                "g": "Daniel",
+                "v": [
+                    87,
+                    303,
+                    355
+                ]
+            },
+            {
+                "id": 392765,
+                "f": "Smith Rowe",
+                "g": "Emile",
+                "v": []
+            },
+            {
+                "id": 167799,
+                "f": "Hojbjerg",
+                "g": "Pierre-Emile",
+                "v": [
+                    329
+                ]
+            },
+            {
+                "id": 39153,
+                "f": "Higuain",
+                "g": "Gonzalo",
+                "v": [
+                    83,
+                    167,
+                    339
+                ]
+            },
+            {
+                "id": 126540,
+                "f": "Umtiti",
+                "g": "Samuel",
+                "v": []
+            }
+        ]
+    }
+}
