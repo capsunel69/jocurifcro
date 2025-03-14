@@ -1,5 +1,5 @@
 import { Box, Flex, Image, Spacer, Link, Text, IconButton, useDisclosure, Drawer, DrawerBody, DrawerHeader, DrawerOverlay, DrawerContent, DrawerCloseButton, Stack } from '@chakra-ui/react'
-import { FaDice, FaUserSecret, FaHome, FaBars } from 'react-icons/fa'
+import { FaDice, FaUserSecret, FaEnvelope, FaBars, FaFutbol } from 'react-icons/fa'
 
 const Header = () => {
     const { isOpen, onOpen, onClose } = useDisclosure()
@@ -7,7 +7,9 @@ const Header = () => {
     const menuItems = [
         { href: '/bingo', icon: FaDice, text: 'Bingo' },
         { href: '/ghiceste-jucatorul', icon: FaUserSecret, text: 'Ghiceste Jucatorul' },
-        { href: 'https://fotbal-comedie.ro', icon: FaHome, text: 'Back to main website' }
+        { href: '/jocul-goleadorilor', icon: FaFutbol, text: 'Jocul Goleadorilor' },
+        { href: '/subscribe', icon: FaEnvelope, text: 'Aboneaza-te' }
+        
     ]
 
     return (
