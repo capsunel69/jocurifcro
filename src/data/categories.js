@@ -21,6 +21,7 @@ export const formatCategories = (remit) => {
     id: index,
     name: getCategoryDisplayName(category),
     description: getCategoryDisplayName(category),
+    title: getCategoryDisplayName(category),
     image: getCategoryImage(category),
     originalData: category
   }))

@@ -53,16 +53,10 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
   const getCategoryImage = (category) => {
     if (!category || !category.originalData) return null
     
-    // Get the first ID from the category group
-    const firstId = category.originalData[0].id
+    // Handle multiple items in the category
+    const images = category.originalData.map(item => `/images/${item.id}.webp`)
     
-    // Return the path to the image using the ID
-    try {
-      return `/images/${firstId}.webp`
-    } catch (error) {
-      console.error(`Failed to load image for category ID ${firstId}:`, error)
-      return null
-    }
+    return images
   }
 
   return (
@@ -107,14 +101,36 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
             bottom="0"
             p={0.5}
           >
-            <Image
-              src={getCategoryImage(category)}
-              alt={`Category ${index + 1}`}
-              boxSize={{ base: "35px", sm: "40px", md: "50px" }}
-              objectFit="contain"
-              filter="drop-shadow(0 2px 4px rgba(0,0,0,0.2))"
-              fallback={null} // Don't show anything if image fails to load
-            />
+            {/* Update the Image section to handle multiple images */}
+            {category.originalData.length > 1 ? (
+              <Grid
+                templateColumns="repeat(2, 1fr)"
+                gap={0}
+                w="85%"
+                justifyItems="center"
+              >
+                {category.originalData.map((item, idx) => (
+                  <Image
+                    key={idx}
+                    src={`/images/${item.id}.webp`}
+                    alt={`Category ${index + 1} Image ${idx + 1}`}
+                    boxSize={{ base: "30px", sm: "35px", md: "40px" }}
+                    objectFit="contain"
+                    filter="drop-shadow(0 2px 4px rgba(0,0,0,0.2))"
+                    fallback={null}
+                  />
+                ))}
+              </Grid>
+            ) : (
+              <Image
+                src={getCategoryImage(category)[0]}
+                alt={`Category ${index + 1}`}
+                boxSize={{ base: "35px", sm: "40px", md: "50px" }}
+                objectFit="contain"
+                filter="drop-shadow(0 2px 4px rgba(0,0,0,0.2))"
+                fallback={null}
+              />
+            )}
             <Box 
               w="100%" 
               px={1}

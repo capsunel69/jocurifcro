@@ -103,8 +103,8 @@ function BingoGame() {
     }
 
     return remitData.map(categoryGroup => ({
-      title: categoryGroup.map(item => item.displayName).join(' / '),
-      description: categoryGroup.map(item => item.name).join(' / '),
+      title: categoryGroup.map(item => item.displayName).join(' + '),
+      description: categoryGroup.map(item => item.name).join(' + '),
       originalData: categoryGroup
     }))
   }
