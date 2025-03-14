@@ -1,5 +1,5 @@
 [build]
-  base = "bingo-game"
+  base = "."
   publish = "dist"
   command = "npm run build"
 
