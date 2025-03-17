@@ -415,6 +415,7 @@ function BingoGame() {
                     <Text pl={4}>• Trebuie sa alegi o categorie in care crezi ca se incadreaza</Text>
                     <Text pl={4}>• Daca alegerea e corecta, patratelul ramane selectat si primesti alt jucator</Text>
                     <Text pl={4}>• Daca gresesti, pierzi 2 jucatori din numarul maxim disponibil</Text>
+                    <Text pl={4}>• Categoria "played with" pentru colegi se refera strict la club, nu echipa nationala.</Text>
                   </Box>
                 </VStack>
 
