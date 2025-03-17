@@ -244,17 +244,27 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
           boxShadow="0 0 30px rgba(239, 68, 68, 0.5)"
           onAnimationEnd={handleAnimationEnd}
         >
-          <Text
-            fontSize="5xl"
-            fontWeight="900"
-            color="red.500"
-            textShadow="2px 2px 4px rgba(0,0,0,0.5)"
-            letterSpacing="wider"
-            textTransform="uppercase"
-            lineHeight="1"
-          >
-            Wrong!
-          </Text>
+          <VStack spacing={0}>
+            <Text
+              fontSize="5xl"
+              fontWeight="900"
+              color="red.500"
+              textShadow="2px 2px 4px rgba(0,0,0,0.5)"
+              letterSpacing="wider"
+              textTransform="uppercase"
+              lineHeight="1"
+            >
+              Wrong!
+            </Text>
+            <Text
+              fontSize="lg"
+              fontWeight="600"
+              color="red.500"
+              textShadow="1px 1px 2px rgba(0,0,0,0.5)"
+            >
+              -2 Players
+            </Text>
+          </VStack>
         </Box>
       )}
 
@@ -275,17 +285,27 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
           boxShadow="0 0 30px rgba(236, 201, 75, 0.5)"
           onAnimationEnd={handleAnimationEnd}
         >
-          <Text
-            fontSize="5xl"
-            fontWeight="900"
-            color="yellow.400"
-            textShadow="2px 2px 4px rgba(0,0,0,0.5)"
-            letterSpacing="wider"
-            textTransform="uppercase"
-            lineHeight="1"
-          >
-            Skip!
-          </Text>
+          <VStack spacing={0}>
+            <Text
+              fontSize="5xl"
+              fontWeight="900"
+              color="yellow.400"
+              textShadow="2px 2px 4px rgba(0,0,0,0.5)"
+              letterSpacing="wider"
+              textTransform="uppercase"
+              lineHeight="1"
+            >
+              Skip!
+            </Text>
+            <Text
+              fontSize="lg"
+              fontWeight="600"
+              color="yellow.400"
+              textShadow="1px 1px 2px rgba(0,0,0,0.5)"
+            >
+              -1 Player
+            </Text>
+          </VStack>
         </Box>
       )}
     </Box>
