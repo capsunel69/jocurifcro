@@ -10,7 +10,7 @@ import NotFoundPage from './pages/NotFound'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import theme from './theme'
-import MultiplayerBingoGame from './pages/MultiplayerBingoGame'
+import MultiplayerSimpleMathGame from './pages/MultiplayerSimpleMathGame'
 
 function App() {
   return (
@@ -33,7 +33,7 @@ function App() {
             <Route path="/ghiceste-jucatorul" element={<GhicesteJucatorul />} />
             <Route path="/subscribe" element={<Subscribe />} />
             <Route path="/confirm-subscribe" element={<ConfirmSubscribe />} />
-            <Route path="/bingo/multiplayer" element={<MultiplayerBingoGame />} />
+            <Route path="/meth" element={<MultiplayerSimpleMathGame />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Box>

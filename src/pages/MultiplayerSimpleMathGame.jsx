@@ -8,7 +8,7 @@ import pusher from '../services/pusher';
 
 const API_BASE_URL = 'http://192.168.0.54:3001';
 
-function MultiplayerBingoGame() {
+function MultiplayerSimpleMathGame() {
   const [roomId, setRoomId] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [gameState, setGameState] = useState('init'); // init, waiting, playing
@@ -286,17 +286,22 @@ function MultiplayerBingoGame() {
                 <Text fontSize="2xl" textAlign="center" mb={4}>
                   {currentProblem}
                 </Text>
-                <HStack>
-                  <Input
-                    placeholder="Your answer"
-                    value={answer}
-                    onChange={(e) => setAnswer(e.target.value)}
-                    type="number"
-                  />
-                  <Button onClick={submitAnswer} colorScheme="green">
-                    Submit
-                  </Button>
-                </HStack>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  submitAnswer();
+                }}>
+                  <HStack>
+                    <Input
+                      placeholder="Your answer"
+                      value={answer}
+                      onChange={(e) => setAnswer(e.target.value)}
+                      type="number"
+                    />
+                    <Button type="submit" colorScheme="green">
+                      Submit
+                    </Button>
+                  </HStack>
+                </form>
               </Box>
             </VStack>
           )}
@@ -306,4 +311,4 @@ function MultiplayerBingoGame() {
   );
 }
 
-export default MultiplayerBingoGame; 
+export default MultiplayerSimpleMathGame; 
