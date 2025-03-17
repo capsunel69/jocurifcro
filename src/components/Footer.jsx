@@ -43,7 +43,7 @@ const Footer = () => {
           >
             Contact
           </Text>
-          <Text mb={6} color="whiteAlpha.800">salut@fotbal-comedie.ro</Text>
+          <Text mb={6} color="whiteAlpha.800">hentzcumana@gmail.com</Text>
           <Flex gap={6} justify={{ base: 'center', md: 'flex-start' }}>
             <Link 
               href="https://www.youtube.com/channel/UCweuWrcNBSKT01d2p_RuLvA" 

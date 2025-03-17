@@ -61,7 +61,7 @@ const Header = () => {
                             color="gray.400"
                             mt={0.5}
                         >
-                            salut@fotbal-comedie.ro
+                            hentzcumana@gmail.com
                         </Text>
                     </Box>
                 </Link>
