@@ -1,6 +1,12 @@
 import { Box, Flex, Image, Spacer, Link, Text, IconButton, useDisclosure, Drawer, DrawerBody, DrawerHeader, DrawerOverlay, DrawerContent, DrawerCloseButton, Stack } from '@chakra-ui/react'
+import { keyframes } from '@emotion/react'
 import { FaDice, FaUserSecret, FaEnvelope, FaBars, FaFutbol } from 'react-icons/fa'
 import { useLocation } from 'react-router-dom'
+
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+`
 
 const Header = () => {
     const { isOpen, onOpen, onClose } = useDisclosure()
@@ -25,15 +31,8 @@ const Header = () => {
             zIndex={1000}
             backdropFilter="blur(12px)"
             boxShadow="0 4px 6px -1px rgba(0, 0, 0, 0.1)"
-            animation="fadeIn 0.3s ease-in-out"
+            animation={`${fadeIn} 0.3s ease-in-out`}
         >
-            <style jsx global>{`
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translateY(-10px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-            `}</style>
-            
             <Flex 
                 align="center" 
                 maxW="1200px" 

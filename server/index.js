@@ -17,8 +17,28 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Store active rooms (in memory for now)
+// Store active rooms and their game states
 const activeRooms = new Map();
+
+// Generate a random math problem
+function generateMathProblem() {
+  const num1 = Math.floor(Math.random() * 20) + 1;
+  const num2 = Math.floor(Math.random() * 20) + 1;
+  const operators = ['+', '-', '*'];
+  const operator = operators[Math.floor(Math.random() * operators.length)];
+  
+  let answer;
+  switch(operator) {
+    case '+': answer = num1 + num2; break;
+    case '-': answer = num1 - num2; break;
+    case '*': answer = num1 * num2; break;
+  }
+  
+  return {
+    question: `${num1} ${operator} ${num2}`,
+    answer
+  };
+}
 
 app.post('/api/create-room', async (req, res) => {
   const { roomId, playerName } = req.body;
@@ -28,8 +48,13 @@ app.post('/api/create-room', async (req, res) => {
   }
 
   const roomData = {
-    players: [playerName],
-    gameState: 'waiting'
+    players: [{
+      name: playerName,
+      score: 0,
+      isHost: true
+    }],
+    gameState: 'waiting',
+    currentProblem: null
   };
   
   activeRooms.set(roomId, roomData);
@@ -37,12 +62,12 @@ app.post('/api/create-room', async (req, res) => {
   try {
     await pusher.trigger(`room-${roomId}`, 'player-joined', {
       player: playerName,
-      players: roomData.players // Send full player list
+      players: roomData.players
     });
 
     res.json({ 
       success: true,
-      players: roomData.players // Send back current players
+      players: roomData.players
     });
   } catch (error) {
     console.error('Pusher error:', error);
@@ -58,22 +83,26 @@ app.post('/api/join-room', async (req, res) => {
   }
 
   const room = activeRooms.get(roomId);
-  if (room.players.includes(playerName)) {
+  if (room.players.some(p => p.name === playerName)) {
     return res.status(400).json({ error: 'Player name already taken' });
   }
 
-  room.players.push(playerName);
+  room.players.push({
+    name: playerName,
+    score: 0
+  });
   activeRooms.set(roomId, room);
 
   try {
     await pusher.trigger(`room-${roomId}`, 'player-joined', {
       player: playerName,
-      players: room.players // Send full player list
+      players: room.players
     });
 
     res.json({ 
       success: true,
-      players: room.players // Send back current players
+      players: room.players,
+      currentProblem: room.currentProblem
     });
   } catch (error) {
     console.error('Pusher error:', error);
@@ -81,20 +110,74 @@ app.post('/api/join-room', async (req, res) => {
   }
 });
 
-// Handle cell selection
-app.post('/api/game/select-cell', (req, res) => {
-  const { playerId, cellId, gameId } = req.body;
+app.post('/api/start-game', async (req, res) => {
+  const { roomId, playerName } = req.body;
+  const room = activeRooms.get(roomId);
   
-  pusher.trigger('bingo-game', 'cell-selected', {
-    playerId,
-    cellId,
-    gameId
-  });
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  // Check if the player is the host
+  const player = room.players.find(p => p.name === playerName);
+  if (!player || !player.isHost) {
+    return res.status(403).json({ error: 'Only host can start the game' });
+  }
+
+  const problem = generateMathProblem();
+  room.currentProblem = problem;
+  room.gameState = 'playing';
   
-  res.json({ success: true });
+  try {
+    await pusher.trigger(`room-${roomId}`, 'game-started', {
+      problem: problem.question
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Pusher error:', error);
+    res.status(500).json({ error: 'Failed to start game' });
+  }
 });
 
-// Add other game event endpoints...
+app.post('/api/submit-answer', async (req, res) => {
+  const { roomId, playerName, answer } = req.body;
+  const room = activeRooms.get(roomId);
+  
+  if (!room || !room.currentProblem) {
+    return res.status(400).json({ error: 'No active game' });
+  }
+
+  const isCorrect = Number(answer) === room.currentProblem.answer;
+  
+  if (isCorrect) {
+    // Update player score
+    const player = room.players.find(p => p.name === playerName);
+    if (player) {
+      player.score += 1;
+    }
+
+    // Generate new problem
+    const newProblem = generateMathProblem();
+    room.currentProblem = newProblem;
+
+    try {
+      await pusher.trigger(`room-${roomId}`, 'answer-result', {
+        playerName,
+        correct: true,
+        players: room.players,
+        newProblem: newProblem.question
+      });
+    } catch (error) {
+      console.error('Pusher error:', error);
+    }
+  }
+
+  res.json({ 
+    success: true,
+    correct: isCorrect
+  });
+});
 
 app.listen(3001, () => {
   console.log('Server running on port 3001');
