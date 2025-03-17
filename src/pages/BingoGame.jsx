@@ -577,30 +577,38 @@ function BingoGame() {
               </Box>
             </HStack>
             
-            <Box 
-              w="full" 
-              maxW="400px" 
-              mx="auto" 
-              p={4} 
-              bg="rgba(0, 0, 0, 0.6)" 
-              borderRadius="xl"
-              boxShadow="0 4px 12px rgba(0, 0, 0, 0.3)"
-            >
-              <HStack justify="center" spacing={3} align="center">
-                <Text 
-                  fontSize="2xl" 
-                  fontWeight="bold" 
-                  textAlign="center"
-                  color="white"
-                  textShadow="0 2px 4px rgba(0, 0, 0, 0.3)"
-                >
-                  {currentPlayer ? `${currentPlayer.g} ${currentPlayer.f}` : 'No player selected'}
-                </Text>
-                {gameMode === 'timed' && (
-                  <Timer seconds={timeRemaining} onTimeUp={handleTimeUp} />
-                )}
-              </HStack>
-            </Box>
+            <VStack w="full" maxW="400px" mx="auto" spacing={4}>
+              <Box 
+                w="full"
+                p={4} 
+                bg="linear-gradient(135deg,rgb(48, 86, 210) 0%,rgb(11, 52, 166) 100%)"
+                borderRadius="xl"
+                boxShadow="0 4px 12px rgba(0, 0, 0, 0.3)"
+                border="1px solid rgba(255, 255, 255, 0.1)"
+              >
+                <HStack justify="center" spacing={3} align="center">
+                  <Text 
+                    fontSize="2xl" 
+                    fontWeight="bold" 
+                    textAlign="center"
+                    color="white"
+                    textShadow="0 2px 4px rgba(0, 0, 0, 0.3)"
+                  >
+                    {currentPlayer ? `${currentPlayer.g} ${currentPlayer.f}` : 'No player selected'}
+                  </Text>
+                  {gameMode === 'timed' && (
+                    <Timer seconds={timeRemaining} onTimeUp={handleTimeUp} />
+                  )}
+                </HStack>
+              </Box>
+
+              <GameControls 
+                hasWildcard={hasWildcard}
+                onWildcardUse={handleWildcard}
+                onSkip={handleSkip}
+                isSkipPenalty={skipPenalty}
+              />
+            </VStack>
 
             <Box w="full" maxW="800px" mx="auto">
               <BingoBoard 
@@ -613,52 +621,39 @@ function BingoGame() {
               />
             </Box>
 
-            <GameControls 
-              hasWildcard={hasWildcard}
-              onWildcardUse={handleWildcard}
-              onSkip={handleSkip}
-              isSkipPenalty={skipPenalty}
-            />
-            
-            <VStack spacing={4} align="center">
-              <Text fontSize="md" color="gray.500">
-                Categories matched: {validSelections.length} of 16
-              </Text>
-              
-              <Stack 
-                direction={['column', 'row']} 
-                spacing={4}
+            <Stack 
+              direction={['column', 'row']} 
+              spacing={4}
+            >
+              <Button
+                size="sm"
+                leftIcon={<MdRefresh />}
+                onClick={() => handleModeSelect(true)}
+                bg="rgba(255, 255, 255, 0.2)"
+                color="white"
+                _hover={{
+                  bg: "rgba(255, 255, 255, 0.3)",
+                  transform: "translateY(-2px)"
+                }}
+                boxShadow="none"
               >
-                <Button
-                  size="sm"
-                  leftIcon={<MdRefresh />}
-                  onClick={() => handleModeSelect(true)}
-                  bg="rgba(255, 255, 255, 0.2)"
-                  color="white"
-                  _hover={{
-                    bg: "rgba(255, 255, 255, 0.3)",
-                    transform: "translateY(-2px)"
-                  }}
-                  boxShadow="none"
-                >
-                  Restart This Card
-                </Button>
-                <Button
-                  size="sm"
-                  leftIcon={<MdShuffle />}
-                  onClick={() => handleModeSelect(false)}
-                  bg="rgba(255, 255, 255, 0.2)"
-                  color="white"
-                  _hover={{
-                    bg: "rgba(255, 255, 255, 0.3)",
-                    transform: "translateY(-2px)"
-                  }}
-                  boxShadow="none"
-                >
-                  Play Random Card
-                </Button>
-              </Stack>
-            </VStack>
+                Restart This Card
+              </Button>
+              <Button
+                size="sm"
+                leftIcon={<MdShuffle />}
+                onClick={() => handleModeSelect(false)}
+                bg="rgba(255, 255, 255, 0.2)"
+                color="white"
+                _hover={{
+                  bg: "rgba(255, 255, 255, 0.3)",
+                  transform: "translateY(-2px)"
+                }}
+                boxShadow="none"
+              >
+                Play Random Card
+              </Button>
+            </Stack>
           </VStack>
         </Container>
       </Box>
