@@ -34,6 +34,11 @@ function BingoGame() {
   const [showSkipAnimation, setShowSkipAnimation] = useState(false)
   const toast = useToast()
 
+  // Add these lines after your existing state declarations
+  const correctSound = new Audio('/sfx/correct_answer.mp3')
+  const wrongSound = new Audio('/sfx/wrong_answer.mp3')
+  const wildcardSound = new Audio('/sfx/wildcard.mp3')
+
   // Update this useEffect to use the correct path
   useEffect(() => {
     const loadCards = async () => {
@@ -204,6 +209,7 @@ function BingoGame() {
     )
 
     if (isValidSelection) {
+      correctSound.play().catch(e => console.log('Audio play failed:', e))
       const newSelectedCells = [...selectedCells, categoryId]
       setSelectedCells(newSelectedCells)
       setValidSelections([...validSelections, categoryId])
@@ -218,6 +224,7 @@ function BingoGame() {
       }
       moveToNextPlayer()
     } else {
+      wrongSound.play().catch(e => console.log('Audio play failed:', e))
       setCurrentInvalidSelection(categoryId)
       setWrongAttempts(prev => prev + 1)
       setMaxAvailablePlayers(prev => Math.max(prev - 2, usedPlayers.length + 1))
@@ -277,6 +284,8 @@ function BingoGame() {
       return
     }
 
+    wildcardSound.play().catch(e => console.log('Audio play failed:', e))
+    
     // Update states with only new matches
     const newValidSelections = [...validSelections, ...validCategories]
     const newWildcardMatches = [...wildcardMatches, ...validCategories]

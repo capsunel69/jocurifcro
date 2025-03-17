@@ -1,8 +1,10 @@
 import { Box, Flex, Image, Spacer, Link, Text, IconButton, useDisclosure, Drawer, DrawerBody, DrawerHeader, DrawerOverlay, DrawerContent, DrawerCloseButton, Stack } from '@chakra-ui/react'
 import { FaDice, FaUserSecret, FaEnvelope, FaBars, FaFutbol } from 'react-icons/fa'
+import { useLocation } from 'react-router-dom'
 
 const Header = () => {
     const { isOpen, onOpen, onClose } = useDisclosure()
+    const location = useLocation()
     
     const menuItems = [
         { href: '/bingo', icon: FaDice, text: 'Bingo' },
@@ -15,20 +17,29 @@ const Header = () => {
     return (
         <Box 
             as="header" 
-            bg="#000212" 
+            bg="linear-gradient(to right, #000212, #0A0A1B)"
             borderBottom="1px solid" 
             borderColor="whiteAlpha.100"
             position="sticky"
             top={0}
             zIndex={1000}
-            backdropFilter="blur(10px)"
+            backdropFilter="blur(12px)"
+            boxShadow="0 4px 6px -1px rgba(0, 0, 0, 0.1)"
+            animation="fadeIn 0.3s ease-in-out"
         >
+            <style jsx global>{`
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+            `}</style>
+            
             <Flex 
                 align="center" 
                 maxW="1200px" 
                 mx="auto" 
-                px={6} 
-                py={3}
+                px={{ base: 4, md: 6 }}
+                py={4}
             >
                 <Link 
                     href="/" 
@@ -67,7 +78,7 @@ const Header = () => {
                 </Link>
                 <Spacer />
                 {/* Desktop Menu */}
-                <Flex gap={3} display={{ base: 'none', md: 'flex' }}>
+                <Flex gap={4} display={{ base: 'none', md: 'flex' }}>
                     {menuItems.map((item, index) => (
                         <Link 
                             key={index}
@@ -77,19 +88,30 @@ const Header = () => {
                             gap={2}
                             px={4}
                             py={2.5}
-                            borderRadius="lg"
-                            color="whiteAlpha.900"
+                            borderRadius="xl"
+                            color={location.pathname === item.href ? "yellow.400" : "whiteAlpha.900"}
                             fontSize="sm"
                             fontWeight="500"
-                            transition="all 0.2s"
+                            transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
                             position="relative"
+                            _before={{
+                                content: '""',
+                                position: 'absolute',
+                                bottom: '-2px',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                width: location.pathname === item.href ? '80%' : '0%',
+                                height: '2px',
+                                bg: 'yellow.400',
+                                transition: 'all 0.3s',
+                            }}
                             _hover={{ 
                                 color: 'yellow.400',
-                                bg: 'whiteAlpha.100',
-                                transform: 'translateY(-2px)'
-                            }}
-                            _active={{
-                                transform: 'translateY(0)',
+                                bg: 'whiteAlpha.200',
+                                transform: 'translateY(-2px)',
+                                _before: {
+                                    width: '80%',
+                                }
                             }}
                         >
                             <item.icon size={18} />
@@ -111,8 +133,11 @@ const Header = () => {
 
                 {/* Mobile Drawer */}
                 <Drawer isOpen={isOpen} onClose={onClose} placement="right">
-                    <DrawerOverlay />
-                    <DrawerContent bg="#000212">
+                    <DrawerOverlay backdropFilter="blur(8px)" />
+                    <DrawerContent 
+                        bg="linear-gradient(to bottom, #000212, #0A0A1B)"
+                        boxShadow="dark-lg"
+                    >
                         <DrawerCloseButton color="white" />
                         <DrawerHeader borderBottomWidth="1px" borderColor="whiteAlpha.100">
                             <Text color="white">Menu</Text>
@@ -129,7 +154,8 @@ const Header = () => {
                                         px={4}
                                         py={2.5}
                                         borderRadius="lg"
-                                        color="whiteAlpha.900"
+                                        color={location.pathname === item.href ? "yellow.400" : "whiteAlpha.900"}
+                                        bg={location.pathname === item.href ? "whiteAlpha.100" : "transparent"}
                                         fontSize="sm"
                                         fontWeight="500"
                                         transition="all 0.2s"
