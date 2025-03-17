@@ -46,8 +46,40 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
   }
 
   const formatCategoryText = (category) => {
-    if (!category || !category.title) return 'Loading...'
-    return category.title
+    if (!category || !category.originalData) return 'Loading...'
+    
+    // Handle multiple items in the category
+    const items = Array.isArray(category.originalData) ? category.originalData : [category.originalData]
+    
+    // Format text based on the first item's type (assuming all items in a group have the same type)
+    const firstItem = items[0]
+    
+    switch (firstItem.type) {
+      case 1: // Country
+        return items.map(item => item.displayName).join(' + ')
+      
+      case 2: // Soccer club
+        return items.map(item => item.displayName).join(' + ')
+      
+      case 3: // League with start date
+        return firstItem.dataFrom 
+          ? `Played in ${firstItem.displayName} (${firstItem.dataFrom}+)`
+          : `Played in ${firstItem.displayName}`
+      
+      case 4: // Coach/Manager
+        return `Managed by ${firstItem.displayName}`
+      
+      case 5: // Colleague
+        return `Played with ${firstItem.displayName}`
+      
+      case 6: // Competition winner
+        return firstItem.dataFrom 
+          ? `${firstItem.displayName} Winner (${firstItem.dataFrom}+)`
+          : `${firstItem.displayName} Winner`
+      
+      default:
+        return items.map(item => item.displayName).join(' + ')
+    }
   }
 
   const getCategoryImage = (category) => {
