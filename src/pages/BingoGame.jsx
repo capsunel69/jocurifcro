@@ -132,12 +132,12 @@ function BingoGame() {
     return selectedPlayer
   }
 
-  const handleModeSelect = async (isTimed) => {
+  const handleModeSelect = async (isTimed, useCurrentCard = false) => {
     const mode = isTimed ? 'timed' : 'classic'
     const initialTime = 10
     
-    // Get and set the game card first
-    const gameCard = getRandomCard()
+    // Get the game card based on whether we want to use the current one or a random one
+    const gameCard = useCurrentCard ? currentCard : getRandomCard()
     if (!gameCard) {
       showToast({
         title: "Error",
@@ -464,10 +464,10 @@ function BingoGame() {
               )}
             </VStack>
             <VStack spacing={4}>
-              <Button colorScheme="brand" size="lg" onClick={() => handleModeSelect(true)}>
+              <Button colorScheme="brand" size="lg" onClick={() => handleModeSelect(gameMode === 'timed', true)}>
                 Play Same Card
               </Button>
-              <Button colorScheme="blue" size="lg" onClick={() => handleModeSelect(false)}>
+              <Button colorScheme="blue" size="lg" onClick={() => handleModeSelect(gameMode === 'timed', false)}>
                 Play Random Card
               </Button>
             </VStack>
@@ -628,7 +628,7 @@ function BingoGame() {
               <Button
                 size="sm"
                 leftIcon={<MdRefresh />}
-                onClick={() => handleModeSelect(true)}
+                onClick={() => handleModeSelect(gameMode === 'timed', true)}
                 bg="rgba(255, 255, 255, 0.2)"
                 color="white"
                 _hover={{
@@ -642,7 +642,7 @@ function BingoGame() {
               <Button
                 size="sm"
                 leftIcon={<MdShuffle />}
-                onClick={() => handleModeSelect(false)}
+                onClick={() => handleModeSelect(gameMode === 'timed', false)}
                 bg="rgba(255, 255, 255, 0.2)"
                 color="white"
                 _hover={{
