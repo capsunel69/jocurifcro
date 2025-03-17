@@ -344,17 +344,18 @@ const GhicesteJucatorul = () => {
           {attempts.length > 0 && (
             <Grid
               w="100%"
-              templateColumns="repeat(5, 1fr)"
-              gap={4}
+              templateColumns={{base: "repeat(5, 1fr)", sm: "repeat(5, 1fr)"}}
+              gap={{base: 2, sm: 4}}
               bg="whiteAlpha.100"
-              p={4}
+              p={{base: 2, sm: 4}}
               borderRadius="md"
               textAlign="center"
+              fontSize={{base: "xs", sm: "md"}}
             >
               <Text>TEAM</Text>
               <Text>POS</Text>
               <Text>NAT</Text>
-              <Text>SHIRT</Text>
+              <Text>NO</Text>
               <Text>AGE</Text>
             </Grid>
           )}
@@ -390,11 +391,11 @@ const GhicesteJucatorul = () => {
                   </Text>
                 </Flex>
                 <Grid
-                  templateColumns="repeat(5, 1fr)"
-                  gap={4}
+                  templateColumns={{base: "repeat(5, 1fr)", sm: "repeat(5, 1fr)"}}
+                  gap={{base: 2, sm: 4}}
                   w="100%"
                   bg="whiteAlpha.100"
-                  p={4}
+                  p={{base: 2, sm: 4}}
                   borderRadius="md"
                   boxShadow="0 4px 6px rgba(0, 0, 0, 0.1)"
                   transition="all 0.2s"
@@ -409,12 +410,13 @@ const GhicesteJucatorul = () => {
                       border={`2px solid ${comparison.actual === comparison.target 
                         ? "rgba(72, 187, 120, 0.5)" 
                         : "rgba(245, 101, 101, 0.5)"}`}
-                      p={2}
+                      p={{base: 1, sm: 2}}
                       borderRadius="md"
                       display="flex"
                       alignItems="center"
                       justifyContent="center"
-                      minH="50px"
+                      minH={{base: "40px", sm: "50px"}}
+                      fontSize={{base: "xs", sm: "md"}}
                       transition="all 0.2s"
                       _hover={{ transform: "scale(1.05)" }}
                       as={motion.div}
@@ -426,8 +428,8 @@ const GhicesteJucatorul = () => {
                         <Image
                           src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/team_logos/${comparison.teamId}.png`}
                           fallbackSrc="https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/placeholder.png"
-                          h="30px"
-                          w="30px"
+                          h={{base: "20px", sm: "30px"}}
+                          w={{base: "20px", sm: "30px"}}
                           objectFit="contain"
                         />
                       ) : (
