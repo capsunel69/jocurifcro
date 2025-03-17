@@ -268,9 +268,12 @@ function BingoGame() {
       // Skip categories that are already selected
       if (selectedCells.includes(index)) return acc
       
-      const isValid = currentPlayer.v.some(achievementId => 
-        category.originalData.some(requirement => requirement.id === achievementId)
-      )
+      // Check if ALL requirements in the category are met by the player
+      const isValid = category.originalData.every(requirement => {
+        // For each requirement in the category, check if the player has at least one matching achievement
+        return currentPlayer.v.some(achievementId => requirement.id === achievementId)
+      })
+      
       if (isValid) acc.push(index)
       return acc
     }, [])
