@@ -9,8 +9,16 @@ const wrongMessageAnimation = keyframes`
   100% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
 `
 
-function BingoBoard({ selectedCells, onCellSelect, validSelections = [], currentInvalidSelection = null, categories = [], wildcardMatches = [] }) {
+const messageAnimation = keyframes`
+  0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+  15% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+  85% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+`
+
+function BingoBoard({ selectedCells, onCellSelect, validSelections = [], currentInvalidSelection = null, categories = [], wildcardMatches = [], showSkip = false }) {
   const [showWrong, setShowWrong] = useState(false)
+  const [showSkipMessage, setShowSkipMessage] = useState(false)
 
   useEffect(() => {
     console.log('Checking cell:', currentInvalidSelection, 'Wildcard matches:', wildcardMatches)
@@ -22,8 +30,15 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
     }
   }, [currentInvalidSelection])
 
+  useEffect(() => {
+    if (showSkip) {
+      setShowSkipMessage(true)
+    }
+  }, [showSkip])
+
   const handleAnimationEnd = () => {
     setShowWrong(false)
+    setShowSkipMessage(false)
   }
 
   const getCellBackground = (categoryId, index) => {
@@ -119,7 +134,7 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
         w="100%"
         maxW="550px"
         mx="auto"
-        pointerEvents={showWrong ? 'none' : 'auto'}
+        pointerEvents={(showWrong || showSkipMessage) ? 'none' : 'auto'}
       >
         {categories.map((category, index) => (
           <GridItem
@@ -220,7 +235,7 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
           transform="translate(-50%, -50%)"
           zIndex={10}
           textAlign="center"
-          animation={`${wrongMessageAnimation} 0.8s ease-in-out forwards`}
+          animation={`${messageAnimation} 0.8s ease-in-out forwards`}
           bg="rgba(0, 0, 0, 0.85)"
           px={6}
           py={3}
@@ -239,6 +254,37 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
             lineHeight="1"
           >
             Wrong!
+          </Text>
+        </Box>
+      )}
+
+      {showSkipMessage && (
+        <Box
+          position="absolute"
+          top="50%"
+          left="50%"
+          transform="translate(-50%, -50%)"
+          zIndex={10}
+          textAlign="center"
+          animation={`${messageAnimation} 0.8s ease-in-out forwards`}
+          bg="rgba(0, 0, 0, 0.85)"
+          px={6}
+          py={3}
+          borderRadius="xl"
+          border="2px solid #ECC94B"
+          boxShadow="0 0 30px rgba(236, 201, 75, 0.5)"
+          onAnimationEnd={handleAnimationEnd}
+        >
+          <Text
+            fontSize="5xl"
+            fontWeight="900"
+            color="yellow.400"
+            textShadow="2px 2px 4px rgba(0,0,0,0.5)"
+            letterSpacing="wider"
+            textTransform="uppercase"
+            lineHeight="1"
+          >
+            Skip!
           </Text>
         </Box>
       )}

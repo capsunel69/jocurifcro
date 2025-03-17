@@ -31,6 +31,7 @@ function BingoGame() {
   const [wrongAttempts, setWrongAttempts] = useState(0)
   const [maxAvailablePlayers, setMaxAvailablePlayers] = useState(null)
   const [iframeLoaded, setIframeLoaded] = useState(false)
+  const [showSkipAnimation, setShowSkipAnimation] = useState(false)
   const toast = useToast()
 
   // Update this useEffect to use the correct path
@@ -313,41 +314,36 @@ function BingoGame() {
       return
     }
 
-    // Reduce max available players by 1
+    setShowSkipAnimation(true)
     setMaxAvailablePlayers(prev => Math.max(prev - 1, usedPlayers.length + 1))
     
-    const nextPlayer = getRandomPlayer([...usedPlayers, currentPlayer.id])
-    
-    if (nextPlayer) {
-      showToast({
-        title: "Skip penalty",
-        description: `Maximum available players reduced to ${maxAvailablePlayers - 1}!`,
-        status: "warning",
-      })
-      setCurrentPlayer(nextPlayer)
-      setUsedPlayers(prev => [...prev, currentPlayer.id])
+    setTimeout(() => {
+      const nextPlayer = getRandomPlayer([...usedPlayers, currentPlayer.id])
       
-      if (gameMode === 'timed') {
-        setTimeRemaining(10)
+      if (nextPlayer) {
+        setCurrentPlayer(nextPlayer)
+        setUsedPlayers(prev => [...prev, currentPlayer.id])
+        
+        if (gameMode === 'timed') {
+          setTimeRemaining(10)
+        }
+      } else {
+        endGame(false)
       }
-    } else {
-      endGame(false)
-    }
+      setShowSkipAnimation(false)
+    }, 800)
   }
 
   const handleTimeUp = () => {
     if (gameMode === 'timed') {
-      // Reduce max available players by 1 for automatic skip
+      setShowSkipAnimation(true)
       setMaxAvailablePlayers(prev => Math.max(prev - 1, usedPlayers.length + 1))
       
-      showToast({
-        title: "Time's up!",
-        description: `Maximum available players reduced to ${maxAvailablePlayers - 1} due to automatic skip!`,
-        status: "warning",
-      })
-      
-      moveToNextPlayer()
-      setTimeRemaining(10) // Reset timer for next player
+      setTimeout(() => {
+        moveToNextPlayer()
+        setTimeRemaining(10)
+        setShowSkipAnimation(false)
+      }, 800)
     }
   }
 
@@ -614,6 +610,7 @@ function BingoGame() {
                 currentInvalidSelection={currentInvalidSelection}
                 categories={categories}
                 wildcardMatches={wildcardMatches}
+                showSkip={showSkipAnimation}
               />
             </Box>
 
