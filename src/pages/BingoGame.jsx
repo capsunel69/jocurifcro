@@ -38,12 +38,16 @@ function BingoGame() {
   useEffect(() => {
     const loadCards = async () => {
       try {
-        // Update the path to point to the correct location
         const cardModules = import.meta.glob('../data/*.json')
         const loadedCards = await Promise.all(
           Object.keys(cardModules).map(async (path) => {
             const module = await cardModules[path]()
-            return module.default || module
+            // Extract the ID from the filename (e.g., "../data/543.json" -> "543")
+            const id = path.match(/\/(\d+)\.json$/)?.[1] || 'Unknown'
+            return {
+              ...module.default || module,
+              id: id
+            }
           })
         )
         
@@ -544,22 +548,33 @@ function BingoGame() {
                   ← Change Mode
                 </Button>
               </VStack>
-              <Box
-                p={3}
-                bg="rgba(0, 0, 0, 0.4)"
-                borderRadius="lg"
-                animation={wrongAttempts > 0 ? `${shakeAnimation} 0.5s ease` : 'none'}
-              >
-                <Text
-                  fontSize="lg"
-                  fontWeight="semibold"
-                  color="white"
-                  textShadow="0 2px 4px rgba(0, 0, 0, 0.3)"
+              <VStack spacing={0} align={['center', 'end']}>
+                <Box
+                  p={3}
+                  bg="rgba(0, 0, 0, 0.4)"
+                  borderRadius="lg"
+                  animation={wrongAttempts > 0 ? `${shakeAnimation} 0.5s ease` : 'none'}
                 >
-                  Players Used: <Text as="span" color="brand.400">{usedPlayers.length}</Text>
-                  <Text as="span" color="gray.400"> / {maxAvailablePlayers}</Text>
+                  <Text
+                    fontSize="lg"
+                    fontWeight="semibold"
+                    color="white"
+                    textShadow="0 2px 4px rgba(0, 0, 0, 0.3)"
+                  >
+                    Players Used: <Text as="span" color="brand.400">{usedPlayers.length}</Text>
+                    <Text as="span" color="gray.400"> / {maxAvailablePlayers}</Text>
+                  </Text>
+                </Box>
+                <Text
+                  fontSize="3xs"
+                  color="gray.600"
+                  mt={1}
+                  textAlign={['center', 'right']}
+                  w="full"
+                >
+                  Card #{currentCard?.id || 'Unknown'}
                 </Text>
-              </Box>
+              </VStack>
             </HStack>
             
             <VStack w="full" maxW="400px" mx="auto" spacing={4}>
