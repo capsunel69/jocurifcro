@@ -7,7 +7,7 @@ const Header = () => {
     const menuItems = [
         { href: '/bingo', icon: FaDice, text: 'Bingo' },
         { href: '/ghiceste-jucatorul', icon: FaUserSecret, text: 'Ghiceste Jucatorul' },
-        { href: '/jocul-goleadorilor', icon: FaFutbol, text: 'Jocul Goleadorilor' },
+        // { href: '/jocul-goleadorilor', icon: FaFutbol, text: 'Jocul Goleadorilor' },
         { href: '/subscribe', icon: FaEnvelope, text: 'Aboneaza-te' }
         
     ]

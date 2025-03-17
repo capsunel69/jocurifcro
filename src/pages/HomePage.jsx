@@ -9,7 +9,7 @@ function HomePage() {
     {
       title: "Bingo",
       description: "Testeaza-ti cunostintele despre fotbal potrivind jucatorii cu realizarile lor in acest joc captivant de bingo!",
-      image: "/images/bingo image.webp", // Add this image to your public folder
+      image: "/images/bingo game.jpg", // Add this image to your public folder
       icon: FaDice,
       path: "/bingo"
     },
@@ -44,14 +44,6 @@ function HomePage() {
             >
               Jocuri Fotbal Comedie
             </Heading>
-            <Text 
-              fontSize="xl" 
-              color="whiteAlpha.900" 
-              maxW="2xl"
-            >
-              Exploreaza colectia noastra de jocuri cu tematica fotbalistica, 
-              create sa-ti testeze cunostintele si sa-ti provoace expertiza in fotbal.
-            </Text>
           </VStack>
 
           {/* Games Grid */}
@@ -74,7 +66,6 @@ function HomePage() {
                   h="200px"
                   w="full"
                   objectFit="cover"
-                  filter="brightness(0.8)"
                 />
                 <Box p={6}>
                   <HStack spacing={3} mb={3}>

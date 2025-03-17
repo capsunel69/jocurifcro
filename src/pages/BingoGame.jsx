@@ -386,6 +386,7 @@ function BingoGame() {
         <Container maxW="container.lg" py={8} mx="auto">
           <VStack spacing={5} align="center" w="full">
             <Heading as="h1" size="xl" textAlign="center">Football Bingo</Heading>
+            <GameModeSelect onModeSelect={handleModeSelect} />
             <VStack 
               spacing={2} 
               align="start" 
@@ -439,7 +440,6 @@ function BingoGame() {
                 </VStack>
               </Grid>
             </VStack>
-            <GameModeSelect onModeSelect={handleModeSelect} />
           </VStack>
         </Container>
       </Box>
