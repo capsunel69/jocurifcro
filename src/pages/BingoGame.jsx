@@ -36,8 +36,13 @@ function BingoGame() {
 
   // Add these lines after your existing state declarations
   const correctSound = new Audio('/sfx/correct_answer.mp3')
+  correctSound.volume = 0.15
+  
   const wrongSound = new Audio('/sfx/wrong_answer.mp3')
+  wrongSound.volume = 0.15
+  
   const wildcardSound = new Audio('/sfx/wildcard.mp3')
+  wildcardSound.volume = 0.15
 
   // Update this useEffect to use the correct path
   useEffect(() => {
