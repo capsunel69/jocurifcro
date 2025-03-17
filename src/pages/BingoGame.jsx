@@ -192,7 +192,6 @@ function BingoGame() {
   const handleCellSelect = (categoryId) => {
     if (!currentPlayer) return
     
-    setCurrentInvalidSelection(null)
     const category = categories[categoryId].originalData
     
     const isValidSelection = currentPlayer.v.some(achievementId => 
@@ -216,19 +215,16 @@ function BingoGame() {
     } else {
       setCurrentInvalidSelection(categoryId)
       setWrongAttempts(prev => prev + 1)
-      // Reduce max available players by 2
       setMaxAvailablePlayers(prev => Math.max(prev - 2, usedPlayers.length + 1))
       
-      showToast({
-        title: "Wrong selection!",
-        description: `That category doesn't match this player's achievements. Maximum available players reduced to ${maxAvailablePlayers - 2}!`,
-        status: "error",
-      })
+      setTimeout(() => {
+        setCurrentInvalidSelection(null)
+        moveToNextPlayer()
+      }, 800)
 
       if (gameMode === 'timed') {
         setTimeRemaining(10)
       }
-      moveToNextPlayer()
     }
   }
 

@@ -1,10 +1,30 @@
 import { Grid, GridItem, Text, HStack, Image, VStack, useColorModeValue, Box } from '@chakra-ui/react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { keyframes } from '@emotion/react'
+
+const wrongMessageAnimation = keyframes`
+  0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+  15% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+  85% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+`
 
 function BingoBoard({ selectedCells, onCellSelect, validSelections = [], currentInvalidSelection = null, categories = [], wildcardMatches = [] }) {
+  const [showWrong, setShowWrong] = useState(false)
+
   useEffect(() => {
     console.log('Checking cell:', currentInvalidSelection, 'Wildcard matches:', wildcardMatches)
   }, [currentInvalidSelection, wildcardMatches])
+
+  useEffect(() => {
+    if (currentInvalidSelection !== null) {
+      setShowWrong(true)
+    }
+  }, [currentInvalidSelection])
+
+  const handleAnimationEnd = () => {
+    setShowWrong(false)
+  }
 
   const getCellBackground = (categoryId, index) => {
     console.log('Checking cell:', categoryId, 'Wildcard matches:', wildcardMatches) // Debug log
@@ -92,103 +112,137 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
   }
 
   return (
-    <Grid
-      templateColumns="repeat(4, 1fr)"
-      gap={1}
-      w="100%"
-      maxW="550px"
-      mx="auto"
-    >
-      {categories.map((category, index) => (
-        <GridItem
-          key={index}
-          onClick={() => !isCellDisabled(index) && onCellSelect(index)}
-          cursor={isCellDisabled(index) ? 'default' : 'pointer'}
-          p={2}
-          bg={getCellBackground(index, index)}
-          transition="all 0.3s ease"
-          borderRadius="md"
-          boxShadow={getCellBoxShadow(index)}
-          position="relative"
-          _hover={{
-            transform: !isCellDisabled(index) && 'translateY(-2px)',
-            bg: isCellDisabled(index) 
-              ? getCellBackground(index, index) 
-              : 'rgba(255, 255, 255, 0.1)'
-          }}
-          _before={{
-            content: '""',
-            display: 'block',
-            paddingTop: '100%'
-          }}
-        >
-          <VStack 
-            spacing={1}
-            justify="center" 
-            align="center"
-            position="absolute"
-            top="0"
-            left="0"
-            right="0"
-            bottom="0"
-            p={0.5}
+    <Box position="relative">
+      <Grid
+        templateColumns="repeat(4, 1fr)"
+        gap={1}
+        w="100%"
+        maxW="550px"
+        mx="auto"
+        pointerEvents={showWrong ? 'none' : 'auto'}
+      >
+        {categories.map((category, index) => (
+          <GridItem
+            key={index}
+            onClick={() => !isCellDisabled(index) && onCellSelect(index)}
+            cursor={isCellDisabled(index) ? 'default' : 'pointer'}
+            p={2}
+            bg={getCellBackground(index, index)}
+            transition="all 0.3s ease"
+            borderRadius="md"
+            boxShadow={getCellBoxShadow(index)}
+            position="relative"
+            _hover={{
+              transform: !isCellDisabled(index) && 'translateY(-2px)',
+              bg: isCellDisabled(index) 
+                ? getCellBackground(index, index) 
+                : 'rgba(255, 255, 255, 0.1)'
+            }}
+            _before={{
+              content: '""',
+              display: 'block',
+              paddingTop: '100%'
+            }}
           >
-            {/* Update the Image section to handle multiple images */}
-            {category.originalData.length > 1 ? (
-              <Grid
-                templateColumns="repeat(2, 1fr)"
-                gap={0}
-                w="85%"
-                justifyItems="center"
-              >
-                {category.originalData.map((item, idx) => (
-                  <Image
-                    key={idx}
-                    src={`/images/${item.id}.webp`}
-                    alt={`Category ${index + 1} Image ${idx + 1}`}
-                    boxSize={{ base: "30px", sm: "35px", md: "40px" }}
-                    objectFit="contain"
-                    filter="drop-shadow(0 2px 4px rgba(0,0,0,0.2))"
-                    fallback={null}
-                  />
-                ))}
-              </Grid>
-            ) : (
-              <Image
-                src={getCategoryImage(category)[0]}
-                alt={`Category ${index + 1}`}
-                boxSize={{ base: "35px", sm: "40px", md: "50px" }}
-                objectFit="contain"
-                filter="drop-shadow(0 2px 4px rgba(0,0,0,0.2))"
-                fallback={null}
-              />
-            )}
-            <Box 
-              w="100%" 
-              px={1}
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-              minH={{ base: "35px", sm: "40px", md: "45px" }}
+            <VStack 
+              spacing={1}
+              justify="center" 
+              align="center"
+              position="absolute"
+              top="0"
+              left="0"
+              right="0"
+              bottom="0"
+              p={0.5}
             >
-              <Text 
-                fontWeight="600"
-                fontSize={{ base: "3xs", sm: "xs", md: "sm" }}
-                color="white"
-                textAlign="center"
-                lineHeight="1"
-                w="100%"
-                textTransform="uppercase"
-                textShadow="0 2px 4px rgba(0,0,0,0.2)"
-                noOfLines={4}
+              {/* Update the Image section to handle multiple images */}
+              {category.originalData.length > 1 ? (
+                <Grid
+                  templateColumns="repeat(2, 1fr)"
+                  gap={0}
+                  w="85%"
+                  justifyItems="center"
+                >
+                  {category.originalData.map((item, idx) => (
+                    <Image
+                      key={idx}
+                      src={`/images/${item.id}.webp`}
+                      alt={`Category ${index + 1} Image ${idx + 1}`}
+                      boxSize={{ base: "30px", sm: "35px", md: "40px" }}
+                      objectFit="contain"
+                      filter="drop-shadow(0 2px 4px rgba(0,0,0,0.2))"
+                      fallback={null}
+                    />
+                  ))}
+                </Grid>
+              ) : (
+                <Image
+                  src={getCategoryImage(category)[0]}
+                  alt={`Category ${index + 1}`}
+                  boxSize={{ base: "35px", sm: "40px", md: "50px" }}
+                  objectFit="contain"
+                  filter="drop-shadow(0 2px 4px rgba(0,0,0,0.2))"
+                  fallback={null}
+                />
+              )}
+              <Box 
+                w="100%" 
+                px={1}
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                minH={{ base: "35px", sm: "40px", md: "45px" }}
               >
-                {formatCategoryText(category)}
-              </Text>
-            </Box>
-          </VStack>
-        </GridItem>
-      ))}
-    </Grid>
+                <Text 
+                  fontWeight="600"
+                  fontSize={{ base: "3xs", sm: "xs", md: "sm" }}
+                  color="white"
+                  textAlign="center"
+                  lineHeight="1"
+                  w="100%"
+                  textTransform="uppercase"
+                  textShadow="0 2px 4px rgba(0,0,0,0.2)"
+                  noOfLines={4}
+                >
+                  {formatCategoryText(category)}
+                </Text>
+              </Box>
+            </VStack>
+          </GridItem>
+        ))}
+      </Grid>
+
+      {showWrong && (
+        <Box
+          position="absolute"
+          top="50%"
+          left="50%"
+          transform="translate(-50%, -50%)"
+          zIndex={10}
+          textAlign="center"
+          animation={`${wrongMessageAnimation} 0.8s ease-in-out forwards`}
+          bg="rgba(0, 0, 0, 0.85)"
+          px={6}
+          py={3}
+          borderRadius="xl"
+          border="2px solid #ef4444"
+          boxShadow="0 0 30px rgba(239, 68, 68, 0.5)"
+          onAnimationEnd={handleAnimationEnd}
+        >
+          <Text
+            fontSize="5xl"
+            fontWeight="900"
+            color="red.500"
+            textShadow="2px 2px 4px rgba(0,0,0,0.5)"
+            letterSpacing="wider"
+            textTransform="uppercase"
+            lineHeight="1"
+          >
+            Wrong!
+          </Text>
+        </Box>
+      )}
+    </Box>
   )
 }
 
