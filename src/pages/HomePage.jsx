@@ -26,7 +26,7 @@ function HomePage() {
 
   return (
     <Box 
-      py={{ base: 4, md: 24 }}
+      py={{ base: 0, md: 24 }}
       borderRadius={{ base: 0, md: "xl" }}
     >
       <Container 
