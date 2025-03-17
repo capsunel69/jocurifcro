@@ -1,0 +1,464 @@
+{
+    "gameData": {
+        "remit": [
+            [
+                {
+                    "id": "1001_1",
+                    "name": "Poliiasi",
+                    "type": 2,
+                    "displayName": "Poli Iasi"
+                }
+            ],
+            [
+                {
+                    "id": "1001_2",
+                    "name": "Politimisoara",
+                    "type": 2,
+                    "displayName": "Poli Timisoara"
+                }
+            ],
+            [
+                {
+                    "id": "1001_3",
+                    "name": "Vaslui",
+                    "type": 2,
+                    "displayName": "Vaslui"
+                }
+            ],
+            [
+                {
+                    "id": "1001_4",
+                    "name": "Steaua",
+                    "type": 2,
+                    "displayName": "Steaua"
+                }
+            ],
+            [
+                {
+                    "id": "1001_5",
+                    "name": "Astra",
+                    "type": 2,
+                    "displayName": "Astra"
+                }
+            ],
+            [
+                {
+                    "id": "1001_6",
+                    "name": "Angola",
+                    "type": 1,
+                    "displayName": "ANG"
+                }
+            ],
+            [
+                {
+                    "id": "1001_7",
+                    "name": "Armenia",
+                    "type": 1,
+                    "displayName": "ARM"
+                }
+            ],
+            [
+                {
+                    "id": "1001_8",
+                    "name": "Australia",
+                    "type": 1,
+                    "displayName": "AUS"
+                }
+            ],
+            [
+                {
+                    "id": "1001_9",
+                    "name": "Moldova",
+                    "type": 1,
+                    "displayName": "MOL"
+                }
+            ],
+            [
+                {
+                    "id": "1001_10",
+                    "name": "Serbia",
+                    "type": 1,
+                    "displayName": "SER"
+                }
+            ],
+            [
+                {
+                    "id": "1001_11",
+                    "name": "Romanian League",
+                    "type": 6,
+                    "displayName": "Romanian League"
+                }
+            ],
+            [
+                {
+                    "id": "1001_12",
+                    "name": "Scotland League",
+                    "type": 6,
+                    "displayName": "Scotland League"
+                }
+            ],
+            [
+                {
+                    "id": "1001_13",
+                    "name": "Gibraltar League",
+                    "type": 3,
+                    "displayName": "Gibraltar League"
+                }
+            ],
+            [
+                {
+                    "id": "1001_14",
+                    "name": "Champions League",
+                    "type": 6,
+                    "displayName": "Champions League"
+                }
+            ],
+            [
+                {
+                    "id": "1001_15",
+                    "name": "Mircea Lucescu",
+                    "type": 4,
+                    "displayName": "Mircea Lucescu"
+                }
+            ],
+            [
+                {
+                    "id": "1001_16",
+                    "name": "Adrian Mutu",
+                    "type": 5,
+                    "displayName": "Adrian Mutu"
+                }
+            ]
+        ],
+        "players": [
+            {
+                "id": "1001_1",
+                "f": "Wesley",
+                "g": "",
+                "v": [
+                    "1001_1",
+                    "1001_3"
+                ]
+            },
+            {
+                "id": "1001_2",
+                "f": "Patras",
+                "g": "Artur",
+                "v": [
+                    "1001_2",
+                    "1001_9"
+                ]
+            },
+            {
+                "id": "1001_3",
+                "f": "N'Doye",
+                "g": "Ousmane",
+                "v": [
+                    "1001_3",
+                    "1001_16"
+                ]
+            },
+            {
+                "id": "1001_4",
+                "f": "Grzelak",
+                "g": "Rafal",
+                "v": [
+                    "1001_4"
+                ]
+            },
+            {
+                "id": "1001_5",
+                "f": "Fatai",
+                "g": "Kehinde",
+                "v": [
+                    "1001_5"
+                ]
+            },
+            {
+                "id": "1001_6",
+                "f": "Kalanga",
+                "g": "Ze",
+                "v": [
+                    "1001_6",
+                    "1001_11"
+                ]
+            },
+            {
+                "id": "1001_7",
+                "f": "Bete",
+                "g": "Edel Apoula",
+                "v": [
+                    "1001_7"
+                ]
+            },
+            {
+                "id": "1001_8",
+                "f": "Griffiths",
+                "g": "Ryan",
+                "v": [
+                    "1001_8"
+                ]
+            },
+            {
+                "id": "1001_9",
+                "f": "Mitrovic",
+                "g": "Srecko",
+                "v": [
+                    "1001_1",
+                    "1001_8"
+                ]
+            },
+            {
+                "id": "1001_10",
+                "f": "Zmeu",
+                "g": "Denis",
+                "v": [
+                    "1001_3",
+                    "1001_9"
+                ]
+            },
+            {
+                "id": "1001_11",
+                "f": "Martinovic",
+                "g": "Novak",
+                "v": [
+                    "1001_10",
+                    "1001_11"
+                ]
+            },
+            {
+                "id": "1001_12",
+                "f": "Mehmedovic",
+                "g": "Ersin",
+                "v": [
+                    "1001_2",
+                    "1001_10",
+                    "1001_11"
+                ]
+            },
+            {
+                "id": "1001_13",
+                "f": "Antal",
+                "g": "Liviu",
+                "v": [
+                    "1001_3",
+                    "1001_11"
+                ]
+            },
+            {
+                "id": "1001_14",
+                "f": "Hagi",
+                "g": "Ianis",
+                "v": [
+                    "1001_11",
+                    "1001_12"
+                ]
+            },
+            {
+                "id": "1001_15",
+                "f": "Burdujan",
+                "g": "Lucian",
+                "v": [
+                    "1001_3",
+                    "1001_13"
+                ]
+            },
+            {
+                "id": "1001_16",
+                "f": "Chivu",
+                "g": "Cristi",
+                "v": [
+                    "1001_14"
+                ]
+            },
+            {
+                "id": "1001_17",
+                "f": "Belodedici",
+                "g": "Miodrag",
+                "v": [
+                    "1001_4",
+                    "1001_14"
+                ]
+            },
+            {
+                "id": "1001_18",
+                "f": "Rat",
+                "g": "Razvan",
+                "v": [
+                    "1001_2",
+                    "1001_11",
+                    "1001_15"
+                ]
+            },
+            {
+                "id": "1001_19",
+                "f": "Marica",
+                "g": "Ciprian",
+                "v": [
+                    "1001_4",
+                    "1001_15"
+                ]
+            },
+            {
+                "id": "1001_20",
+                "f": "Popescu",
+                "g": "Stefan",
+                "v": [
+                    "1001_1",
+                    "1001_16"
+                ]
+            },
+            {
+                "id": "1001_21",
+                "f": "Constantin",
+                "g": "Marius",
+                "v": [
+                    "1001_3",
+                    "1001_16"
+                ]
+            },
+            {
+                "id": "1001_22",
+                "f": "Popescu",
+                "g": "Mihai",
+                "v": [
+                    "1001_4"
+                ]
+            },
+            {
+                "id": "1001_23",
+                "f": "Rus",
+                "g": "Adrian",
+                "v": []
+            },
+            {
+                "id": "1001_24",
+                "f": "Stefanescu",
+                "g": "Marius",
+                "v": [
+                    "1001_4"
+                ]
+            },
+            {
+                "id": "1001_25",
+                "f": "Papeau",
+                "g": "Jayson",
+                "v": []
+            },
+            {
+                "id": "1001_26",
+                "f": "Abdallah",
+                "g": "Hakim",
+                "v": []
+            },
+            {
+                "id": "1001_27",
+                "f": "Munteanu",
+                "g": "Louis",
+                "v": [
+                    "1001_11"
+                ]
+            },
+            {
+                "id": "1001_28",
+                "f": "Camora",
+                "g": "Mario",
+                "v": [
+                    "1001_11"
+                ]
+            },
+            {
+                "id": "1001_29",
+                "f": "Cocis",
+                "g": "Razvan",
+                "v": [
+                    "1001_2"
+                ]
+            },
+            {
+                "id": "1001_30",
+                "f": "Nistor",
+                "g": "Dan",
+                "v": [
+                    "1001_11"
+                ]
+            },
+            {
+                "id": "1001_31",
+                "f": "Stoica",
+                "g": "Ionut",
+                "v": []
+            },
+            {
+                "id": "1001_32",
+                "f": "Seroni",
+                "g": "Alin",
+                "v": [
+                    "1001_2"
+                ]
+            },
+            {
+                "id": "1001_33",
+                "f": "Budescu",
+                "g": "Constantin",
+                "v": [
+                    "1001_4",
+                    "1001_5",
+                    "1001_11"
+                ]
+            },
+            {
+                "id": "1001_34",
+                "f": "Keita",
+                "g": "Kader",
+                "v": []
+            },
+            {
+                "id": "1001_35",
+                "f": "Maldonado",
+                "g": "Denil",
+                "v": []
+            },
+            {
+                "id": "1001_36",
+                "f": "Bana",
+                "g": "Stefan",
+                "v": []
+            },
+            {
+                "id": "1001_37",
+                "f": "Mbappe",
+                "g": "Kyllan",
+                "v": [
+                    "1001_14"
+                ]
+            },
+            {
+                "id": "1001_38",
+                "f": "Niculae",
+                "g": "Marius",
+                "v": [
+                    "1001_11",
+                    "1001_16"
+                ]
+            },
+            {
+                "id": "1001_39",
+                "f": "Plesan",
+                "g": "Mihaita",
+                "v": [
+                    "1001_4"
+                ]
+            },
+            {
+                "id": "1001_40",
+                "f": "Pirlo",
+                "g": "Andrea",
+                "v": [
+                    "1001_14",
+                    "1001_15"
+                ]
+            }
+        ]
+    }
+}
