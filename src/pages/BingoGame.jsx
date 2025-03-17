@@ -235,10 +235,9 @@ function BingoGame() {
     const newUsedPlayers = [...usedPlayers, currentPlayer.id]
     setUsedPlayers(newUsedPlayers)
 
-    // Check if we've reached the maximum allowed players
-    if (newUsedPlayers.length >= maxAvailablePlayers) {
-      endGame(false)
-      return
+    // Only reduce available players for manual skips, not for time-ups
+    if (!gameMode === 'timed' || showSkipAnimation) {
+      setMaxAvailablePlayers(prev => Math.max(prev - 1, usedPlayers.length + 1))
     }
 
     const nextPlayer = getRandomPlayer(newUsedPlayers)
@@ -317,19 +316,13 @@ function BingoGame() {
     setShowSkipAnimation(true)
     setMaxAvailablePlayers(prev => Math.max(prev - 1, usedPlayers.length + 1))
     
+    // Reset timer if in timed mode
+    if (gameMode === 'timed') {
+      setTimeRemaining(10)
+    }
+    
     setTimeout(() => {
-      const nextPlayer = getRandomPlayer([...usedPlayers, currentPlayer.id])
-      
-      if (nextPlayer) {
-        setCurrentPlayer(nextPlayer)
-        setUsedPlayers(prev => [...prev, currentPlayer.id])
-        
-        if (gameMode === 'timed') {
-          setTimeRemaining(10)
-        }
-      } else {
-        endGame(false)
-      }
+      moveToNextPlayer()
       setShowSkipAnimation(false)
     }, 800)
   }
@@ -337,7 +330,7 @@ function BingoGame() {
   const handleTimeUp = () => {
     if (gameMode === 'timed') {
       setShowSkipAnimation(true)
-      setMaxAvailablePlayers(prev => Math.max(prev - 1, usedPlayers.length + 1))
+      // Don't reduce players here since it will be handled in moveToNextPlayer
       
       setTimeout(() => {
         moveToNextPlayer()
