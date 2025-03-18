@@ -14,10 +14,10 @@ import {
   Center
 } from '@chakra-ui/react'
 import { MdRefresh, MdShuffle } from 'react-icons/md'
-import BingoBoard from '../components/BingoBoard'
-import GameControls from '../components/GameControls'
-import Timer from '../components/Timer'
-import GameModeSelect from '../components/GameModeSelect'
+import MpBingoBoard from '../components/bingoMultiplayer/mpBingoBoard'
+import MpGameControls from '../components/bingoMultiplayer/mpGameControls'
+import MpTimer from '../components/bingoMultiplayer/mpTimer'
+import MpGameModeSelect from '../components/bingoMultiplayer/mpGameModeSelect'
 import pusher from '../services/pusher'
 
 const API_BASE_URL = 'http://192.168.0.54:3001'
@@ -64,13 +64,15 @@ function MultiplayerBingoGame() {
       })
 
       channel.bind('game-started', (data) => {
-        setCategories(data.categories)
-        setGameState('playing')
-        setCurrentPlayer(data.currentPlayer)
+        setCountdown(null);
+        setGameData(data.gameData);
+        setCurrentPlayer(data.currentPlayer);
+        setGameState('playing');
         toast({
           title: "Game Started!",
           status: "success",
-        })
+        });
+        console.log('Game data received:', data.gameData); // Debug log
       })
 
       channel.bind('cell-selected', (data) => {
@@ -434,28 +436,32 @@ function MultiplayerBingoGame() {
             </HStack>
 
             {gameData && (
-              <BingoBoard
-                categories={gameData.categories}
-                selectedCells={selectedCells}
-                onCellSelect={handleCellSelect}
-                validSelections={validSelections}
-                currentInvalidSelection={currentInvalidSelection}
-                wildcardMatches={wildcardMatches}
-                showSkip={showSkipAnimation}
-              />
+              <Box w="full" maxW="800px" mx="auto">
+                <MpBingoBoard
+                  categories={gameData.categories}
+                  selectedCells={selectedCells}
+                  onCellSelect={handleCellSelect}
+                  validSelections={validSelections}
+                  currentInvalidSelection={currentInvalidSelection}
+                  wildcardMatches={wildcardMatches}
+                  showSkip={showSkipAnimation}
+                />
+              </Box>
             )}
 
             {currentPlayer?.name === playerName && (
-              <GameControls
-                hasWildcard={hasWildcard}
-                onWildcardUse={handleWildcardUse}
-                onSkip={handleSkip}
-                isSkipPenalty={skipPenalty}
-              />
+              <Box w="full" maxW="500px" mx="auto">
+                <MpGameControls
+                  hasWildcard={hasWildcard}
+                  onWildcardUse={handleWildcardUse}
+                  onSkip={handleSkip}
+                  isSkipPenalty={skipPenalty}
+                />
+              </Box>
             )}
 
             {gameMode === 'timed' && currentPlayer?.name === playerName && (
-              <Timer seconds={timeRemaining} onTimeUp={handleTimeUp} />
+              <MpTimer seconds={timeRemaining} onTimeUp={handleTimeUp} />
             )}
           </VStack>
         </Container>

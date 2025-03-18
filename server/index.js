@@ -1,6 +1,12 @@
 import express from 'express';
 import Pusher from 'pusher';
 import cors from 'cors';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { readFileSync, readdirSync } from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const pusher = new Pusher({
   appId: '1940326',
@@ -17,27 +23,46 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Store active rooms and their game states
+// Add this function to load game cards
+const gameCards = [];
+try {
+  // Load all JSON files from the data directory
+  const dataDir = join(__dirname, '../src/data');
+  
+  readdirSync(dataDir).forEach(file => {
+    if (file.endsWith('.json')) {
+      const cardData = JSON.parse(readFileSync(join(dataDir, file)));
+      gameCards.push({
+        ...cardData,
+        id: file.replace('.json', '')
+      });
+    }
+  });
+  console.log(`Loaded ${gameCards.length} game cards`); // Debug log
+} catch (error) {
+  console.error('Error loading game cards:', error);
+}
+
+// Modify the room data structure
 const activeRooms = new Map();
 
-// Generate a random math problem
-function generateMathProblem() {
-  const num1 = Math.floor(Math.random() * 20) + 1;
-  const num2 = Math.floor(Math.random() * 20) + 1;
-  const operators = ['+', '-', '*'];
-  const operator = operators[Math.floor(Math.random() * operators.length)];
-  
-  let answer;
-  switch(operator) {
-    case '+': answer = num1 + num2; break;
-    case '-': answer = num1 - num2; break;
-    case '*': answer = num1 * num2; break;
+// Helper function to get a random card
+function getRandomCard() {
+  return gameCards[Math.floor(Math.random() * gameCards.length)];
+}
+
+// Helper function to format categories
+function formatCategories(remitData) {
+  if (!remitData || !Array.isArray(remitData)) {
+    console.error('Invalid remit data:', remitData);
+    return [];
   }
-  
-  return {
-    question: `${num1} ${operator} ${num2}`,
-    answer
-  };
+
+  return remitData.map(categoryGroup => ({
+    title: categoryGroup.map(item => item.displayName).join(' + '),
+    description: categoryGroup.map(item => item.name).join(' + '),
+    originalData: categoryGroup
+  }));
 }
 
 app.post('/api/create-room', async (req, res) => {
@@ -124,64 +149,45 @@ app.post('/api/start-game', async (req, res) => {
     return res.status(403).json({ error: 'Only host can start the game' });
   }
 
-  // Start countdown sequence
-  let countdown = 3;
-  room.gameState = 'countdown';
-  
   try {
-    // Initial countdown notification
-    await pusher.trigger(`room-${roomId}`, 'game-countdown', {
-      count: countdown
-    });
+    // Get a random card
+    const gameCard = getRandomCard();
+    if (!gameCard) {
+      return res.status(500).json({ error: 'No game cards available' });
+    }
 
-    // Set up countdown interval
-    const countdownInterval = setInterval(async () => {
-      countdown--;
-      
-      if (countdown > 0) {
-        await pusher.trigger(`room-${roomId}`, 'game-countdown', {
-          count: countdown
-        });
-      } else {
-        clearInterval(countdownInterval);
-        
-        // Generate game data
-        const gameData = generateBingoCard();
-        room.gameState = 'playing';
-        room.currentGame = gameData;
-        room.currentGame.currentPlayer = room.players[0]; // Set first player
-        
-        // Start the game
-        await pusher.trigger(`room-${roomId}`, 'game-started', {
-          gameData,
-          currentPlayer: room.currentGame.currentPlayer
-        });
+    // Initialize game state
+    room.gameState = 'playing';
+    room.currentGame = {
+      card: gameCard,
+      categories: formatCategories(gameCard.gameData.remit),
+      playerStates: room.players.map(p => ({
+        name: p.name,
+        score: 0,
+        selectedCells: [],
+        validSelections: [],
+        hasWildcard: true,
+        usedPlayers: [],
+        maxAvailablePlayers: gameCard.gameData.players.length,
+        currentPlayer: gameCard.gameData.players[0]
+      }))
+    };
+
+    // Notify all players
+    await pusher.trigger(`room-${roomId}`, 'game-started', {
+      gameData: {
+        categories: room.currentGame.categories,
+        players: gameCard.gameData.players,
+        currentCard: gameCard.id
       }
-    }, 1000);
+    });
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Pusher error:', error);
+    console.error('Error starting game:', error);
     res.status(500).json({ error: 'Failed to start game' });
   }
 });
-
-// Helper function to generate bingo card data
-function generateBingoCard() {
-  const categories = [
-    "Category 1", "Category 2", "Category 3", "Category 4",
-    "Category 5", "Category 6", "Category 7", "Category 8",
-    "Category 9", "Category 10", "Category 11", "Category 12",
-    "Category 13", "Category 14", "Category 15", "Category 16"
-  ];
-
-  return {
-    categories,
-    currentPlayer: null,
-    selectedCells: [],
-    validSelections: []
-  };
-}
 
 app.post('/api/submit-answer', async (req, res) => {
   const { roomId, playerName, answer } = req.body;
@@ -221,6 +227,103 @@ app.post('/api/submit-answer', async (req, res) => {
     correct: isCorrect
   });
 });
+
+app.post('/api/cell-select', async (req, res) => {
+  const { roomId, playerName, categoryId } = req.body;
+  const room = activeRooms.get(roomId);
+  
+  if (!room || !room.currentGame) {
+    return res.status(404).json({ error: 'Game not found' });
+  }
+
+  const playerState = room.currentGame.playerStates.find(p => p.name === playerName);
+  if (!playerState) {
+    return res.status(404).json({ error: 'Player not found' });
+  }
+
+  try {
+    const category = room.currentGame.categories[categoryId].originalData;
+    const isValidSelection = playerState.currentPlayer.v.some(achievementId => 
+      category.some(requirement => requirement.id === achievementId)
+    );
+
+    if (isValidSelection) {
+      playerState.selectedCells.push(categoryId);
+      playerState.validSelections.push(categoryId);
+      playerState.score += 1;
+
+      // Get next player
+      const currentPlayerIndex = room.currentGame.card.gameData.players.findIndex(p => p.id === playerState.currentPlayer.id);
+      const nextPlayerIndex = (currentPlayerIndex + 1) % room.currentGame.card.gameData.players.length;
+      playerState.currentPlayer = room.currentGame.card.gameData.players[nextPlayerIndex];
+    } else {
+      playerState.maxAvailablePlayers = Math.max(playerState.maxAvailablePlayers - 2, playerState.usedPlayers.length + 1);
+    }
+
+    await pusher.trigger(`room-${roomId}`, 'cell-selected', {
+      playerName,
+      categoryId,
+      isValid: isValidSelection,
+      playerState
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to process selection' });
+  }
+});
+
+app.post('/api/use-wildcard', async (req, res) => {
+  const { roomId, playerName } = req.body;
+  const room = activeRooms.get(roomId);
+  
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  try {
+    // Add wildcard logic here
+    const wildcardMatches = []; // Add your wildcard matching logic
+    
+    await pusher.trigger(`room-${roomId}`, 'wildcard-used', {
+      wildcardMatches,
+      playerName
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to use wildcard' });
+  }
+});
+
+app.post('/api/skip-turn', async (req, res) => {
+  const { roomId, playerName } = req.body;
+  const room = activeRooms.get(roomId);
+  
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  try {
+    const nextPlayer = getNextPlayer(room.players, playerName);
+    
+    await pusher.trigger(`room-${roomId}`, 'turn-skipped', {
+      nextPlayer,
+      playerName
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to skip turn' });
+  }
+});
+
+// Helper function to get next player
+function getNextPlayer(players, currentPlayerName) {
+  const currentIndex = players.findIndex(p => p.name === currentPlayerName);
+  const nextIndex = (currentIndex + 1) % players.length;
+  return players[nextIndex];
+}
 
 app.listen(3001, () => {
   console.log('Server running on port 3001');
