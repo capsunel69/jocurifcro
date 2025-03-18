@@ -893,13 +893,16 @@ function MultiplayerBingoGame() {
 
   // Render game over screen immediately when isGameOver is true
   if (isGameOver || gameState === 'finished') {
-    console.log('Rendering game over screen with:', {
-      validSelections: validSelections.length,
-      playerScores,
+    // Calculate allPlayersFinished based on the current state
+    const allPlayersFinished = players.every(player => finishedPlayers.includes(player.name));
+    const remainingPlayers = players.length - finishedPlayers.length;
+
+    console.log('Game over state:', {
+      allPlayersFinished,
       finishedPlayers,
-      gameState,
-      players
-    })
+      players,
+      remainingPlayers
+    });
     
     return (
       <Box
@@ -981,14 +984,14 @@ function MultiplayerBingoGame() {
               </VStack>
             </Box>
 
-            {/* Players still in game */}
-            {players.length > finishedPlayers.length && (
+            {/* Players still in game - Only show if not all players finished */}
+            {!allPlayersFinished && (
               <Text
                 color="gray.400"
                 fontSize="lg"
                 textAlign="center"
               >
-                Waiting for {players.length - finishedPlayers.length} player{players.length - finishedPlayers.length > 1 ? 's' : ''} to finish...
+                Waiting for {remainingPlayers} player{remainingPlayers > 1 ? 's' : ''} to finish...
               </Text>
             )}
 
