@@ -84,6 +84,19 @@ function MultiplayerBingoGame() {
       })
 
       channel.bind('cell-selected', (data) => {
+        // Always update scores in real-time for all players
+        if (data.isValid) {
+          console.log(`Regular match - Updating score for ${data.playerName}`)
+          setPlayerScores(prev => {
+            const newScore = (prev[data.playerName] || 0) + 1 // Each match counts as 1
+            console.log(`New score for ${data.playerName} after regular match: ${newScore}`)
+            return {
+              ...prev,
+              [data.playerName]: newScore
+            }
+          })
+        }
+
         if (data.playerName === playerName) {
           if (data.isValid) {
             correctSound.play()
@@ -126,6 +139,22 @@ function MultiplayerBingoGame() {
       })
 
       channel.bind('wildcard-used', (data) => {
+        const newMatches = (data.wildcardMatches || []).filter(
+          matchId => !data.previousValidSelections.includes(matchId)
+        )
+        
+        if (newMatches.length > 0) {
+          console.log(`Wildcard matches - Updating score for ${data.playerName}`)
+          setPlayerScores(prev => {
+            const newScore = (prev[data.playerName] || 0) + newMatches.length // Each wildcard match counts as 1
+            console.log(`New score for ${data.playerName} after wildcard: ${newScore}`)
+            return {
+              ...prev,
+              [data.playerName]: newScore
+            }
+          })
+        }
+
         if (data.playerName === playerName) {
           wildcardSound.play()
           setWildcardMatches(data.wildcardMatches || [])
@@ -822,7 +851,8 @@ function MultiplayerBingoGame() {
       validSelections: validSelections.length,
       playerScores,
       finishedPlayers,
-      gameState
+      gameState,
+      players
     })
     
     return (
@@ -881,27 +911,27 @@ function MultiplayerBingoGame() {
                 <Heading size="md" color="white">
                   Room Leaderboard
                 </Heading>
-                {Object.entries(playerScores)
-                  .sort(([,a], [,b]) => b - a)
-                  .map(([player, score]) => (
-                    <HStack
-                      key={player}
-                      justify="space-between"
-                      bg={player === playerName ? "rgba(66, 153, 225, 0.3)" : "rgba(255, 255, 255, 0.05)"}
-                      p={3}
-                      borderRadius="md"
-                    >
-                      <Text color="white">
-                        {player} {player === playerName && "(You)"}
-                      </Text>
-                      <HStack spacing={3}>
-                        <Text color="white">{score} matches</Text>
-                        {finishedPlayers.includes(player) && (
-                          <Badge colorScheme="green">Finished</Badge>
-                        )}
-                      </HStack>
+                {players.map((player) => (
+                  <HStack
+                    key={player.name}
+                    justify="space-between"
+                    bg={player.name === playerName ? "rgba(66, 153, 225, 0.3)" : "rgba(255, 255, 255, 0.05)"}
+                    p={3}
+                    borderRadius="md"
+                  >
+                    <Text color="white">
+                      {player.name} {player.name === playerName && "(You)"}
+                    </Text>
+                    <HStack spacing={3}>
+                      <Text color="white">{playerScores[player.name] || 0} matches</Text>
+                      {finishedPlayers.includes(player.name) ? (
+                        <Badge colorScheme="green">Finished</Badge>
+                      ) : (
+                        <Badge colorScheme="yellow">Playing</Badge>
+                      )}
                     </HStack>
-                  ))}
+                  </HStack>
+                ))}
               </VStack>
             </Box>
 

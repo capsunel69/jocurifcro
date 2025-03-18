@@ -214,9 +214,12 @@ app.post('/api/cell-select', async (req, res) => {
     const category = room.currentGame.categories[categoryId].originalData;
     const currentPlayer = room.currentGame.card.gameData.players.find(p => p.id === currentPlayerId);
     
-    const isValidSelection = currentPlayer.v.some(achievementId => 
-      category.some(requirement => requirement.id === achievementId)
-    );
+    const isValidSelection = currentPlayer.v.some(achievementId => {
+      // Check if ALL requirements in the category are matched
+      return category.every(requirement => 
+        currentPlayer.v.includes(requirement.id)
+      );
+    });
 
     // Get remaining players (excluding current and used players)
     const remainingPlayers = room.currentGame.card.gameData.players.filter(
@@ -290,50 +293,27 @@ app.post('/api/use-wildcard', async (req, res) => {
       return res.status(400).json({ error: 'Current player not found' });
     }
 
-    console.log('Current player achievements:', currentPlayer.v);
-    
-    // Check if there are any possible matches
-    const possibleMatches = categories.filter((category, index) => {
-      const hasMatch = currentPlayer.v.some(achievementId => 
-        category.originalData.some(requirement => requirement.id === achievementId)
-      );
-      console.log('Category check:', {
-        categoryId: index, // Use array index as category ID
-        hasMatch,
-        achievements: category.originalData.map(r => r.id)
-      });
-      return hasMatch;
-    });
-
-    console.log('Possible matches found:', possibleMatches.length);
-
-    if (possibleMatches.length === 0) {
-      console.log('No matching categories found');
-      return res.status(200).json({ 
-        wildcardMatches: [],
-        message: 'No matching categories found'
-      });
-    }
-
     // Get the indices of matching categories
     const matchIndices = categories.reduce((acc, category, index) => {
-      if (currentPlayer.v.some(achievementId => 
-        category.originalData.some(requirement => requirement.id === achievementId)
-      )) {
+      // Check if ALL requirements in the category are matched
+      const matchesAllRequirements = category.originalData.every(requirement =>
+        currentPlayer.v.includes(requirement.id)
+      );
+      
+      if (matchesAllRequirements) {
+        console.log(`Category ${index} matched all requirements`);
         acc.push(index);
       }
       return acc;
     }, []);
 
+    console.log('Matching categories found:', matchIndices.length);
+
     // Send wildcard matches to all players
     await pusher.trigger(`room-${roomId}`, 'wildcard-used', {
       playerName,
-      wildcardMatches: matchIndices
-    });
-
-    console.log('Wildcard response sent:', {
-      matchCount: matchIndices.length,
-      matches: matchIndices
+      wildcardMatches: matchIndices,
+      previousValidSelections: room.currentGame.playerStates.get(playerName)?.validSelections || []
     });
 
     res.json({ 
