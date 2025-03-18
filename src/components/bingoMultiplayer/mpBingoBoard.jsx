@@ -16,9 +16,10 @@ const messageAnimation = keyframes`
   100% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
 `
 
-function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], currentInvalidSelection = null, categories = [], wildcardMatches = [], showSkip = false, isDisabled }) {
+function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], currentInvalidSelection = null, categories = [], wildcardMatches = [], showSkip = false, isDisabled, currentPlayer }) {
   const [showWrong, setShowWrong] = useState(false)
   const [showSkipMessage, setShowSkipMessage] = useState(false)
+  const [showCheatHighlight, setShowCheatHighlight] = useState(false)
 
   useEffect(() => {
     if (currentInvalidSelection !== null) {
@@ -32,9 +33,28 @@ function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], curre
     }
   }, [showSkip])
 
+  useEffect(() => {
+    const handleKeyPress = (event) => {
+      if (event.key === 'F6') {
+        setShowCheatHighlight(prev => !prev)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [])
+
   const handleAnimationEnd = () => {
     setShowWrong(false)
     setShowSkipMessage(false)
+  }
+
+  const isPotentialMatch = (categoryId) => {
+    if (!currentPlayer || !categories[categoryId]) return false
+    
+    return categories[categoryId].originalData.every(requirement => 
+      currentPlayer.v.some(achievementId => requirement.id === achievementId)
+    )
   }
 
   const getCellBackground = (categoryId, index) => {
@@ -46,6 +66,9 @@ function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], curre
     }
     if (categoryId === currentInvalidSelection) return '#ef4444'
     if (selectedCells.includes(categoryId)) return 'brand.100'
+    if (showCheatHighlight && isPotentialMatch(categoryId)) {
+      return '#9333ea'
+    }
     
     const row = Math.floor(index / 4)
     const col = index % 4

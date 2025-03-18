@@ -863,6 +863,7 @@ function MultiplayerBingoGame() {
                   wildcardMatches={wildcardMatches}
                   showSkip={showSkipAnimation}
                   isDisabled={isInteractionDisabled}
+                  currentPlayer={currentPlayer}
                 />
               </Box>
             )}
