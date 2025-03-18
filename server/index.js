@@ -65,78 +65,48 @@ function formatCategories(remitData) {
   }));
 }
 
-app.post('/api/create-room', async (req, res) => {
-  const { roomId, playerName } = req.body;
+app.post('/api/create-room', (req, res) => {
+  const { playerName } = req.body;
   
-  if (activeRooms.has(roomId)) {
-    return res.status(400).json({ error: 'Room already exists' });
-  }
-
-  const roomData = {
-    players: [{
-      name: playerName,
-      score: 0,
-      isHost: true
-    }],
+  // Generate a random 6-character room ID
+  const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+  
+  // Create the room
+  activeRooms.set(roomId, {
+    players: [{ name: playerName, isHost: true }],
     gameState: 'waiting',
-    currentProblem: null
-  };
+    currentGame: null
+  });
   
-  activeRooms.set(roomId, roomData);
-
-  try {
-    await pusher.trigger(`room-${roomId}`, 'player-joined', {
-      player: playerName,
-      players: roomData.players
-    });
-
-    res.json({ 
-      success: true,
-      players: roomData.players
-    });
-  } catch (error) {
-    console.error('Pusher error:', error);
-    res.status(500).json({ error: 'Failed to create room' });
-  }
+  res.json({ roomId });
 });
 
 app.post('/api/join-room', async (req, res) => {
   const { roomId, playerName } = req.body;
+  const room = activeRooms.get(roomId);
   
-  if (!activeRooms.has(roomId)) {
+  if (!room) {
     return res.status(404).json({ error: 'Room not found' });
   }
-
-  const room = activeRooms.get(roomId);
-  if (room.players.some(p => p.name === playerName)) {
-    return res.status(400).json({ error: 'Player name already taken' });
+  
+  if (room.gameState !== 'waiting') {
+    return res.status(400).json({ error: 'Game already in progress' });
   }
-
-  room.players.push({
-    name: playerName,
-    score: 0
+  
+  // Add player to room
+  room.players.push({ name: playerName, isHost: false });
+  
+  // Notify other players
+  await pusher.trigger(`room-${roomId}`, 'player-joined', {
+    players: room.players,
+    player: playerName
   });
-  activeRooms.set(roomId, room);
-
-  try {
-    await pusher.trigger(`room-${roomId}`, 'player-joined', {
-      player: playerName,
-      players: room.players
-    });
-
-    res.json({ 
-      success: true,
-      players: room.players,
-      currentProblem: room.currentProblem
-    });
-  } catch (error) {
-    console.error('Pusher error:', error);
-    res.status(500).json({ error: 'Failed to join room' });
-  }
+  
+  res.json({ success: true });
 });
 
 app.post('/api/start-game', async (req, res) => {
-  const { roomId, playerName } = req.body;
+  const { roomId, playerName, gameMode } = req.body;
   const room = activeRooms.get(roomId);
   
   if (!room) {
@@ -160,6 +130,7 @@ app.post('/api/start-game', async (req, res) => {
     room.gameState = 'playing';
     room.currentGame = {
       card: gameCard,
+      gameMode: gameMode,
       categories: formatCategories(gameCard.gameData.remit),
       playerStates: room.players.map(p => ({
         name: p.name,
@@ -178,7 +149,9 @@ app.post('/api/start-game', async (req, res) => {
       gameData: {
         categories: room.currentGame.categories,
         players: gameCard.gameData.players,
-        currentCard: gameCard.id
+        currentCard: gameCard.id,
+        gameMode: gameMode,
+        currentPlayer: gameCard.gameData.players[0]
       }
     });
 

@@ -9,7 +9,6 @@ import {
   Heading,
   useToast,
   Badge,
-  Divider,
   Input,
   Center
 } from '@chakra-ui/react'
@@ -25,16 +24,14 @@ const API_BASE_URL = 'http://192.168.0.54:3001'
 function MultiplayerBingoGame() {
   const [gameMode, setGameMode] = useState(null)
   const [timeRemaining, setTimeRemaining] = useState(10)
-  const [gameState, setGameState] = useState('init') // init, waiting, playing, end
+  const [gameState, setGameState] = useState('init')
   const [currentPlayer, setCurrentPlayer] = useState(null)
   const [selectedCells, setSelectedCells] = useState([])
   const [validSelections, setValidSelections] = useState([])
   const [currentInvalidSelection, setCurrentInvalidSelection] = useState(null)
-  const [usedPlayers, setUsedPlayers] = useState([])
   const [hasWildcard, setHasWildcard] = useState(true)
   const [skipPenalty, setSkipPenalty] = useState(false)
   const [wildcardMatches, setWildcardMatches] = useState([])
-  const [wrongAttempts, setWrongAttempts] = useState(0)
   const [showSkipAnimation, setShowSkipAnimation] = useState(false)
   
   // Multiplayer specific states
@@ -42,13 +39,14 @@ function MultiplayerBingoGame() {
   const [playerName, setPlayerName] = useState('')
   const [players, setPlayers] = useState([])
   const [isHost, setIsHost] = useState(false)
-  const [categories, setCategories] = useState([])
-  const [countdown, setCountdown] = useState(null)
   const [gameData, setGameData] = useState(null)
+  const [maxAvailablePlayers, setMaxAvailablePlayers] = useState(16)
+  const [usedPlayers, setUsedPlayers] = useState([])
 
   const toast = useToast()
   const correctSound = new Audio('/sounds/correct.mp3')
   const wrongSound = new Audio('/sounds/wrong.mp3')
+  const wildcardSound = new Audio('/sounds/wildcard.mp3')
 
   useEffect(() => {
     if (roomId) {
@@ -64,162 +62,91 @@ function MultiplayerBingoGame() {
       })
 
       channel.bind('game-started', (data) => {
-        setCountdown(null);
-        setGameData(data.gameData);
-        setCurrentPlayer(data.currentPlayer);
-        setGameState('playing');
+        setGameData(data.gameData)
+        setCurrentPlayer(data.currentPlayer)
+        setGameState('playing')
+        setMaxAvailablePlayers(data.gameData.players.length)
         toast({
           title: "Game Started!",
           status: "success",
-        });
-        console.log('Game data received:', data.gameData); // Debug log
+        })
       })
 
       channel.bind('cell-selected', (data) => {
-        setSelectedCells(data.selectedCells)
-        setValidSelections(data.validSelections)
-        setCurrentPlayer(data.nextPlayer)
         if (data.isValid) {
           correctSound.play()
+          setValidSelections(prev => [...prev, data.categoryId])
         } else {
           wrongSound.play()
+          setCurrentInvalidSelection(data.categoryId)
+          setTimeout(() => setCurrentInvalidSelection(null), 800)
         }
+        
+        setSelectedCells(data.playerState.selectedCells)
+        setCurrentPlayer(data.playerState.currentPlayer)
+        setMaxAvailablePlayers(data.playerState.maxAvailablePlayers)
+        setUsedPlayers(data.playerState.usedPlayers)
       })
 
-      channel.bind('game-countdown', (data) => {
-        setCountdown(data.count)
+      channel.bind('wildcard-used', (data) => {
+        wildcardSound.play()
+        setWildcardMatches(data.wildcardMatches)
+        setHasWildcard(false)
+      })
+
+      channel.bind('turn-skipped', (data) => {
+        setShowSkipAnimation(true)
+        setTimeout(() => setShowSkipAnimation(false), 800)
+        setCurrentPlayer(data.nextPlayer)
+        if (data.isPenalty) {
+          setSkipPenalty(true)
+          setTimeout(() => setSkipPenalty(false), 1000)
+        }
       })
 
       return () => {
         channel.unbind_all()
-        channel.unsubscribe()
+        pusher.unsubscribe(`room-${roomId}`)
       }
     }
   }, [roomId])
 
-  const createRoom = async () => {
-    if (!playerName) {
-      toast({
-        title: "Error",
-        description: "Please enter your name",
-        status: "error",
-      })
-      return
-    }
-
-    const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase()
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/create-room`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          roomId: newRoomId,
-          playerName
-        })
-      })
-
-      if (!response.ok) throw new Error('Failed to create room')
-      
-      const data = await response.json()
-      setRoomId(newRoomId)
-      setPlayers(data.players)
-      setGameState('waiting')
-      setIsHost(true)
-      
-      toast({
-        title: "Room created!",
-        description: `Share this code with friends: ${newRoomId}`,
-        status: "success",
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create room",
-        status: "error",
-      })
-    }
-  }
-
-  const joinRoom = async () => {
-    if (!playerName || !roomId) {
-      toast({
-        title: "Error",
-        description: "Please enter your name and room code",
-        status: "error",
-      })
-      return
-    }
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/join-room`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId,
-          playerName
-        })
-      })
-
-      if (!response.ok) throw new Error('Failed to join room')
-      
-      const data = await response.json()
-      setPlayers(data.players)
-      setGameState('waiting')
-      
-      toast({
-        title: "Success!",
-        description: "You've joined the room",
-        status: "success",
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to join room. Please check the room code.",
-        status: "error",
-      })
-    }
-  }
-
   const handleCellSelect = async (categoryId) => {
-    if (currentPlayer?.name !== playerName) return
-
+    if (!currentPlayer || currentPlayer.name !== playerName) return
+    
     try {
       const response = await fetch(`${API_BASE_URL}/api/cell-select`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId,
-          playerName,
-          categoryId
-        })
+        body: JSON.stringify({ roomId, playerName, categoryId })
       })
-
-      if (!response.ok) throw new Error('Failed to select cell')
+      
+      if (!response.ok) throw new Error('Failed to process selection')
+      
     } catch (error) {
+      console.error('Error selecting cell:', error)
       toast({
         title: "Error",
-        description: "Failed to select cell",
+        description: "Failed to process selection",
         status: "error",
       })
     }
   }
 
   const handleWildcardUse = async () => {
-    if (!hasWildcard || currentPlayer?.name !== playerName) return
-
+    if (!hasWildcard || !currentPlayer || currentPlayer.name !== playerName) return
+    
     try {
       const response = await fetch(`${API_BASE_URL}/api/use-wildcard`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId,
-          playerName
-        })
+        body: JSON.stringify({ roomId, playerName })
       })
-
+      
       if (!response.ok) throw new Error('Failed to use wildcard')
+      
     } catch (error) {
+      console.error('Error using wildcard:', error)
       toast({
         title: "Error",
         description: "Failed to use wildcard",
@@ -229,20 +156,19 @@ function MultiplayerBingoGame() {
   }
 
   const handleSkip = async () => {
-    if (currentPlayer?.name !== playerName) return
-
+    if (!currentPlayer || currentPlayer.name !== playerName) return
+    
     try {
       const response = await fetch(`${API_BASE_URL}/api/skip-turn`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId,
-          playerName
-        })
+        body: JSON.stringify({ roomId, playerName })
       })
-
+      
       if (!response.ok) throw new Error('Failed to skip turn')
+      
     } catch (error) {
+      console.error('Error skipping turn:', error)
       toast({
         title: "Error",
         description: "Failed to skip turn",
@@ -251,130 +177,155 @@ function MultiplayerBingoGame() {
     }
   }
 
-  const handleTimeUp = async () => {
-    if (currentPlayer?.name !== playerName) return
+  const handleTimeUp = () => {
+    handleSkip()
+  }
 
+  const handleModeSelect = async (isTimed) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/time-up`, {
+      setGameMode(isTimed ? 'timed' : 'classic');
+      
+      const response = await fetch(`${API_BASE_URL}/api/start-game`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           roomId,
-          playerName
+          playerName,
+          gameMode: isTimed ? 'timed' : 'classic'
         })
-      })
-
-      if (!response.ok) throw new Error('Failed to handle time up')
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to handle time up",
-        status: "error",
-      })
-    }
-  }
-
-  const handleStartGame = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/start-game`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          roomId,
-          playerName
-        }),
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to start game');
+        throw new Error('Failed to start game');
       }
 
-      toast({
-        title: "Starting game...",
-        status: "info",
-      });
-
+      // Game will be started via Pusher event 'game-started'
     } catch (error) {
-      console.error('Failed to start game:', error);
+      console.error('Error starting game:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to start game",
+        description: "Failed to start game",
+        status: "error"
+      });
+    }
+  };
+
+  const handleCreateRoom = async () => {
+    if (!playerName) {
+      toast({
+        title: "Error",
+        description: "Please enter your name",
+        status: "error",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/create-room`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerName })
+      });
+
+      if (!response.ok) throw new Error('Failed to create room');
+      
+      const data = await response.json();
+      setRoomId(data.roomId);
+      setIsHost(true);
+      setPlayers([{ name: playerName, isHost: true }]);
+      setGameState('waiting');
+      
+      toast({
+        title: "Room Created!",
+        description: `Room ID: ${data.roomId}`,
+        status: "success",
+      });
+    } catch (error) {
+      console.error('Error creating room:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create room",
         status: "error",
       });
     }
   };
 
-  // Render functions based on gameState
+  const handleJoinRoom = async () => {
+    if (!playerName || !roomId) {
+      toast({
+        title: "Error",
+        description: "Please enter your name and room ID",
+        status: "error",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/join-room`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerName, roomId })
+      });
+
+      if (!response.ok) throw new Error('Failed to join room');
+      
+      setGameState('waiting');
+    } catch (error) {
+      console.error('Error joining room:', error);
+      toast({
+        title: "Error",
+        description: "Failed to join room",
+        status: "error",
+      });
+    }
+  };
+
   return (
-    <Box minH="100vh" p={6}>
+    <Box minH="100vh" bg="gray.900" color="white" pb={8}>
       {gameState === 'init' && (
-        <Container maxW="container.xl">
+        <Container maxW="container.md" pt={8}>
           <VStack spacing={8}>
             <Heading>Multiplayer Bingo</Heading>
-            <VStack spacing={4} w="full" maxW="400px">
-              <Input
-                placeholder="Your Name"
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
-              />
-              
-              <VStack w="full" spacing={4}>
-                <Button
-                  colorScheme="blue"
-                  w="full"
-                  onClick={createRoom}
-                >
-                  Create New Room
-                </Button>
-                
-                <Text>- or -</Text>
-                
+            <Input
+              placeholder="Enter your name"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+            />
+            <HStack spacing={4} w="full">
+              <Button 
+                colorScheme="green" 
+                onClick={handleCreateRoom}
+                flex={1}
+              >
+                Create Room
+              </Button>
+              <Text>OR</Text>
+              <VStack flex={1} spacing={4}>
                 <Input
-                  placeholder="Enter Room Code"
+                  placeholder="Enter room ID"
                   value={roomId}
-                  onChange={(e) => setRoomId(e.target.value.toUpperCase())}
+                  onChange={(e) => setRoomId(e.target.value)}
                 />
-                
-                <Button
-                  colorScheme="green"
+                <Button 
+                  colorScheme="blue" 
                   w="full"
-                  onClick={joinRoom}
+                  onClick={handleJoinRoom}
                 >
                   Join Room
                 </Button>
               </VStack>
-            </VStack>
+            </HStack>
           </VStack>
         </Container>
       )}
 
       {gameState === 'waiting' && (
-        <Container maxW="container.xl">
-          <VStack spacing={6} align="center">
-            <Heading size="lg" color="white">Waiting Room</Heading>
-            
-            <Box 
-              p={4} 
-              bg="whiteAlpha.200" 
-              borderRadius="md" 
-              textAlign="center"
-            >
-              <Text fontSize="xl" color="white" mb={2}>
-                Room Code: <Text as="span" color="yellow.400" fontWeight="bold">{roomId}</Text>
-              </Text>
-              <Text fontSize="sm" color="whiteAlpha.700">
-                Share this code with your friends to join
-              </Text>
-            </Box>
-
-            <Box w="full" maxW="400px">
-              <Text fontSize="lg" color="white" mb={4}>
-                Players:
-              </Text>
-              <VStack spacing={2} align="stretch">
+        <Container maxW="container.md" pt={8}>
+          <VStack spacing={6}>
+            <Heading size="lg">Waiting Room</Heading>
+            <Text>Room ID: {roomId}</Text>
+            <Box w="full">
+              <VStack align="stretch" spacing={2}>
                 {players.map((player, index) => (
                   <HStack
                     key={index}
@@ -383,45 +334,23 @@ function MultiplayerBingoGame() {
                     borderRadius="md"
                     justify="space-between"
                   >
-                    <Text color="white">{player.name}</Text>
-                    {player.isHost && (
-                      <Badge colorScheme="yellow">Host</Badge>
-                    )}
+                    <Text>{player.name}</Text>
+                    {player.isHost && <Badge colorScheme="yellow">Host</Badge>}
                   </HStack>
                 ))}
               </VStack>
             </Box>
-
             {isHost && players.length >= 2 && (
-              <Button
-                colorScheme="yellow"
-                size="lg"
-                onClick={handleStartGame}
-                mt={4}
-              >
-                Start Game
-              </Button>
+              <MpGameModeSelect onModeSelect={handleModeSelect} />
             )}
           </VStack>
         </Container>
       )}
 
-      {gameState === 'countdown' && (
-        <Center h="100vh">
-          <Text
-            fontSize="8xl"
-            fontWeight="bold"
-            color="yellow.400"
-            animation="pulse 1s infinite"
-          >
-            {countdown}
-          </Text>
-        </Center>
-      )}
-
       {gameState === 'playing' && (
-        <Container maxW="container.xl">
+        <Container maxW="container.xl" pt={8}>
           <VStack spacing={6}>
+            {/* Player scores */}
             <HStack spacing={4} wrap="wrap" justify="center">
               {players.map((player) => (
                 <Badge
@@ -435,6 +364,44 @@ function MultiplayerBingoGame() {
               ))}
             </HStack>
 
+            {/* Current player info */}
+            {currentPlayer && (
+              <Box 
+                w="full"
+                maxW="400px"
+                p={4} 
+                bg="linear-gradient(135deg,rgb(48, 86, 210) 0%,rgb(11, 52, 166) 100%)"
+                borderRadius="xl"
+                boxShadow="0 4px 12px rgba(0, 0, 0, 0.3)"
+                border="1px solid rgba(255, 255, 255, 0.1)"
+              >
+                <HStack justify="center" spacing={3} align="center">
+                  <Text 
+                    fontSize="2xl" 
+                    fontWeight="bold"
+                    color="white"
+                    textShadow="0 2px 4px rgba(0, 0, 0, 0.3)"
+                  >
+                    {currentPlayer.g} {currentPlayer.f}
+                  </Text>
+                  {gameMode === 'timed' && currentPlayer.name === playerName && (
+                    <MpTimer seconds={timeRemaining} onTimeUp={handleTimeUp} />
+                  )}
+                </HStack>
+              </Box>
+            )}
+
+            {/* Game controls */}
+            {currentPlayer?.name === playerName && (
+              <MpGameControls
+                hasWildcard={hasWildcard}
+                onWildcardUse={handleWildcardUse}
+                onSkip={handleSkip}
+                isSkipPenalty={skipPenalty}
+              />
+            )}
+
+            {/* Bingo board */}
             {gameData && (
               <Box w="full" maxW="800px" mx="auto">
                 <MpBingoBoard
@@ -449,20 +416,21 @@ function MultiplayerBingoGame() {
               </Box>
             )}
 
-            {currentPlayer?.name === playerName && (
-              <Box w="full" maxW="500px" mx="auto">
-                <MpGameControls
-                  hasWildcard={hasWildcard}
-                  onWildcardUse={handleWildcardUse}
-                  onSkip={handleSkip}
-                  isSkipPenalty={skipPenalty}
-                />
-              </Box>
-            )}
-
-            {gameMode === 'timed' && currentPlayer?.name === playerName && (
-              <MpTimer seconds={timeRemaining} onTimeUp={handleTimeUp} />
-            )}
+            {/* Used players counter */}
+            <Box
+              p={3}
+              bg="rgba(0, 0, 0, 0.4)"
+              borderRadius="lg"
+            >
+              <Text
+                fontSize="lg"
+                fontWeight="semibold"
+                color="white"
+                textShadow="0 2px 4px rgba(0, 0, 0, 0.3)"
+              >
+                Players Used: {usedPlayers.length} / {maxAvailablePlayers}
+              </Text>
+            </Box>
           </VStack>
         </Container>
       )}
