@@ -110,6 +110,7 @@ function MultiplayerBingoGame() {
           setTimeout(() => setShowSkipAnimation(false), 1000)
           setCurrentPlayer(data.nextPlayer)
           setMaxAvailablePlayers(prev => Math.max(prev - 1, usedPlayers.length + 1))
+          setUsedPlayers(prev => [...prev, data.skippedPlayerId])
         }
       })
 

@@ -306,21 +306,27 @@ app.post('/api/skip-turn', async (req, res) => {
   }
 
   try {
-    const playerState = room.currentGame.playerStates.get(playerName);
-    
-    // Get next random player for this specific user
+    // Get remaining players (excluding current and used players)
     const remainingPlayers = room.currentGame.card.gameData.players.filter(
-      p => !usedPlayers.includes(p.id)
+      p => !usedPlayers.includes(p.id) && p.id !== currentPlayerId
     );
+    
+    if (remainingPlayers.length === 0) {
+      return res.status(400).json({ error: 'No more players available' });
+    }
+
+    // Get next random player
     const nextPlayer = remainingPlayers[Math.floor(Math.random() * remainingPlayers.length)];
 
     await pusher.trigger(`room-${roomId}`, 'turn-skipped', {
       playerName,
-      nextPlayer
+      nextPlayer,
+      skippedPlayerId: currentPlayerId // Send the skipped player ID
     });
 
     res.json({ success: true });
   } catch (error) {
+    console.error('Error skipping turn:', error);
     res.status(500).json({ error: 'Failed to skip turn' });
   }
 });
