@@ -232,7 +232,7 @@ function BingoGame() {
       wrongSound.play().catch(e => console.log('Audio play failed:', e))
       setCurrentInvalidSelection(categoryId)
       setWrongAttempts(prev => prev + 1)
-      setMaxAvailablePlayers(prev => Math.max(prev - 2, usedPlayers.length + 1))
+      setMaxAvailablePlayers(prev => Math.max(prev - 1, usedPlayers.length + 1))
       
       setTimeout(() => {
         setCurrentInvalidSelection(null)
@@ -250,11 +250,6 @@ function BingoGame() {
     
     const newUsedPlayers = [...usedPlayers, currentPlayer.id]
     setUsedPlayers(newUsedPlayers)
-
-    // Only reduce available players for manual skips, not for time-ups
-    if (!gameMode === 'timed' || showSkipAnimation) {
-      setMaxAvailablePlayers(prev => Math.max(prev - 1, usedPlayers.length + 1))
-    }
 
     const nextPlayer = getRandomPlayer(newUsedPlayers)
     
@@ -335,8 +330,6 @@ function BingoGame() {
     }
 
     setShowSkipAnimation(true)
-    setMaxAvailablePlayers(prev => Math.max(prev - 1, usedPlayers.length + 1))
-    
     // Reset timer if in timed mode
     if (gameMode === 'timed') {
       setTimeRemaining(10)
@@ -422,7 +415,7 @@ function BingoGame() {
                     <Text fontWeight="semibold">2. Pentru fiecare jucator afisat:</Text>
                     <Text pl={4}>• Trebuie sa alegi o categorie in care crezi ca se incadreaza</Text>
                     <Text pl={4}>• Daca alegerea e corecta, patratelul ramane selectat si primesti alt jucator</Text>
-                    <Text pl={4}>• Daca gresesti, pierzi 2 jucatori din numarul maxim disponibil</Text>
+                    <Text pl={4}>• Daca gresesti, pierzi 1 jucator din numarul maxim disponibil</Text>
                     <Text pl={4}>• Categoria "played with" pentru colegi se refera strict la club, nu echipa nationala.</Text>
                   </Box>
                 </VStack>

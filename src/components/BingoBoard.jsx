@@ -265,7 +265,7 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
               color="red.500"
               textShadow="1px 1px 2px rgba(0,0,0,0.5)"
             >
-              -2 Players
+              -1 Player
             </Text>
           </VStack>
         </Box>
@@ -306,7 +306,7 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
               color="yellow.400"
               textShadow="1px 1px 2px rgba(0,0,0,0.5)"
             >
-              -1 Player
+              Next Player
             </Text>
           </VStack>
         </Box>
