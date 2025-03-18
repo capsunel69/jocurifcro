@@ -14,10 +14,9 @@ const Header = () => {
     
     const menuItems = [
         { href: '/bingo', icon: FaDice, text: 'Bingo' },
-        { href: '/multiplayer-bingo', icon: FaNetworkWired, text: 'Multiplayer Bingo' },
+        { href: '/multiplayer-bingo', icon: FaNetworkWired, text: 'Multiplayer Bingo', disabled: true },
         { href: '/ghiceste-jucatorul', icon: FaUserSecret, text: 'Ghiceste Jucatorul' },
         { href: '/subscribe', icon: FaEnvelope, text: 'Aboneaza-te' }
-        
     ]
 
     return (
@@ -81,18 +80,20 @@ const Header = () => {
                     {menuItems.map((item, index) => (
                         <Link 
                             key={index}
-                            href={item.href}
+                            href={item.disabled ? '#' : item.href}
                             display="flex"
                             alignItems="center"
                             gap={2}
                             px={4}
                             py={2.5}
                             borderRadius="xl"
-                            color={location.pathname === item.href ? "yellow.400" : "whiteAlpha.900"}
+                            color={item.disabled ? "gray.500" : (location.pathname === item.href ? "yellow.400" : "whiteAlpha.900")}
                             fontSize="sm"
                             fontWeight="500"
                             transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
                             position="relative"
+                            cursor={item.disabled ? "not-allowed" : "pointer"}
+                            opacity={item.disabled ? 0.6 : 1}
                             _before={{
                                 content: '""',
                                 position: 'absolute',
@@ -105,11 +106,11 @@ const Header = () => {
                                 transition: 'all 0.3s',
                             }}
                             _hover={{ 
-                                color: 'yellow.400',
-                                bg: 'whiteAlpha.200',
-                                transform: 'translateY(-2px)',
+                                color: item.disabled ? "gray.500" : 'yellow.400',
+                                bg: item.disabled ? "transparent" : 'whiteAlpha.200',
+                                transform: item.disabled ? "none" : 'translateY(-2px)',
                                 _before: {
-                                    width: '80%',
+                                    width: item.disabled ? '0%' : '80%',
                                 }
                             }}
                         >
@@ -146,21 +147,23 @@ const Header = () => {
                                 {menuItems.map((item, index) => (
                                     <Link
                                         key={index}
-                                        href={item.href}
+                                        href={item.disabled ? '#' : item.href}
                                         display="flex"
                                         alignItems="center"
                                         gap={2}
                                         px={4}
                                         py={2.5}
                                         borderRadius="lg"
-                                        color={location.pathname === item.href ? "yellow.400" : "whiteAlpha.900"}
+                                        color={item.disabled ? "gray.500" : (location.pathname === item.href ? "yellow.400" : "whiteAlpha.900")}
                                         bg={location.pathname === item.href ? "whiteAlpha.100" : "transparent"}
                                         fontSize="sm"
                                         fontWeight="500"
                                         transition="all 0.2s"
+                                        cursor={item.disabled ? "not-allowed" : "pointer"}
+                                        opacity={item.disabled ? 0.6 : 1}
                                         _hover={{ 
-                                            color: 'yellow.400',
-                                            bg: 'whiteAlpha.100',
+                                            color: item.disabled ? "gray.500" : 'yellow.400',
+                                            bg: item.disabled ? "transparent" : 'whiteAlpha.100',
                                         }}
                                         onClick={onClose}
                                     >
