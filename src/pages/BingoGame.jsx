@@ -625,6 +625,7 @@ function BingoGame() {
                 onWildcardUse={handleWildcard}
                 onSkip={handleSkip}
                 isSkipPenalty={skipPenalty}
+                isDisabled={showSkipAnimation || currentInvalidSelection !== null}
               />
             </VStack>
 

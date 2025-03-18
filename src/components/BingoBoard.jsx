@@ -20,6 +20,9 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
   const [showWrong, setShowWrong] = useState(false)
   const [showSkipMessage, setShowSkipMessage] = useState(false)
 
+  // Add this new prop to pass up to the parent component
+  const isAnimating = showWrong || showSkipMessage
+
   useEffect(() => {
     console.log('Checking cell:', currentInvalidSelection, 'Wildcard matches:', wildcardMatches)
   }, [currentInvalidSelection, wildcardMatches])
@@ -127,7 +130,7 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
   }
 
   return (
-    <Box position="relative">
+    <Box position="relative" data-animating={isAnimating}>
       <Grid
         templateColumns="repeat(4, 1fr)"
         gap={1}
