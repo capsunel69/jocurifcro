@@ -1,6 +1,6 @@
 import { Box, Flex, Image, Spacer, Link, Text, IconButton, useDisclosure, Drawer, DrawerBody, DrawerHeader, DrawerOverlay, DrawerContent, DrawerCloseButton, Stack } from '@chakra-ui/react'
 import { keyframes } from '@emotion/react'
-import { FaDice, FaUserSecret, FaEnvelope, FaBars } from 'react-icons/fa'
+import { FaDice, FaUserSecret, FaEnvelope, FaBars, FaNetworkWired } from 'react-icons/fa'
 import { useLocation } from 'react-router-dom'
 
 const fadeIn = keyframes`
@@ -14,9 +14,8 @@ const Header = () => {
     
     const menuItems = [
         { href: '/bingo', icon: FaDice, text: 'Bingo' },
-        { href: '/multiplayer-bingo', icon: FaDice, text: 'Multiplayer Bingo' },
+        { href: '/multiplayer-bingo', icon: FaNetworkWired, text: 'Multiplayer Bingo' },
         { href: '/ghiceste-jucatorul', icon: FaUserSecret, text: 'Ghiceste Jucatorul' },
-        // { href: '/jocul-goleadorilor', icon: FaFutbol, text: 'Jocul Goleadorilor' },
         { href: '/subscribe', icon: FaEnvelope, text: 'Aboneaza-te' }
         
     ]

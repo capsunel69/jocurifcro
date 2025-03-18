@@ -281,7 +281,7 @@ function MultiplayerBingoGame() {
   };
 
   return (
-    <Box minH="100vh" bg="gray.900" color="white" pb={8}>
+    <Box minH="100vh" color="white" pb={8} mt={10}>
       {gameState === 'init' && (
         <Container maxW="container.md" pt={8}>
           <VStack spacing={8}>
