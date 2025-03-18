@@ -45,6 +45,8 @@ function MultiplayerBingoGame() {
   const [isInteractionDisabled, setIsInteractionDisabled] = useState(false)
   const [playerScores, setPlayerScores] = useState({})
   const [finishedPlayers, setFinishedPlayers] = useState([])
+  const [isHost, setIsHost] = useState(false)
+  const [allPlayersFinished, setAllPlayersFinished] = useState(false)
 
   const correctSound = new Audio('/sfx/correct_answer.mp3')
   correctSound.volume = 0.15
@@ -128,6 +130,7 @@ function MultiplayerBingoGame() {
           wildcardSound.play()
           setWildcardMatches(data.wildcardMatches || [])
           setHasWildcard(false)
+          setIsInteractionDisabled(false)
         }
       })
 
@@ -174,11 +177,32 @@ function MultiplayerBingoGame() {
         }
       })
 
+      channel.bind('game-reset', (data) => {
+        // Reset game state for all players
+        setGameState('waiting')
+        setIsGameOver(false)
+        setValidSelections([])
+        setSelectedCells([])
+        setUsedPlayers([])
+        setHasWildcard(true)
+        setWildcardMatches([])
+        setPlayerScores({})
+        setFinishedPlayers([])
+        setAllPlayersFinished(false)
+      })
+
       return () => {
         pusher.unsubscribe(`room-${roomId}`)
       }
     }
   }, [roomId, playerName, maxAvailablePlayers])
+
+  useEffect(() => {
+    // Check if all players have finished
+    if (players.length > 0 && finishedPlayers.length === players.length) {
+      setAllPlayersFinished(true)
+    }
+  }, [players, finishedPlayers])
 
   const handleModeSelect = async (isTimed) => {
     setGameMode(isTimed ? 'timed' : 'classic')
@@ -248,9 +272,21 @@ function MultiplayerBingoGame() {
   }
 
   const handleWildcardUse = async () => {
-    if (isInteractionDisabled || isGameOver || !hasWildcard) return
+    if (isInteractionDisabled || isGameOver || !hasWildcard) {
+      console.log('Wildcard blocked:', { isInteractionDisabled, isGameOver, hasWildcard })
+      return
+    }
     
     try {
+      console.log('Attempting to use wildcard:', {
+        roomId,
+        playerName,
+        currentPlayerId: currentPlayer?.id,
+        categoriesCount: categories.length
+      })
+      
+      setIsInteractionDisabled(true)
+      
       const response = await fetch(`${API_BASE_URL}/api/use-wildcard`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -262,15 +298,43 @@ function MultiplayerBingoGame() {
         })
       })
       
-      if (!response.ok) throw new Error('Failed to use wildcard')
+      const data = await response.json()
+      console.log('Wildcard response:', data)
+      
+      if (!response.ok) {
+        setIsInteractionDisabled(false)
+        throw new Error(data.error || 'Failed to use wildcard')
+      }
+      
+      // Check if there are any matches
+      if (data.wildcardMatches && data.wildcardMatches.length === 0) {
+        console.log('No wildcard matches found')
+        setIsInteractionDisabled(false)
+        toast({
+          title: "No Matches Found",
+          description: "There are no categories that match the current player. Your wildcard is still available!",
+          status: "info",
+          duration: 3000,
+          isClosable: true,
+        })
+        return
+      }
+      
+      console.log('Wildcard used successfully:', data.wildcardMatches)
+      wildcardSound.play()
+      setWildcardMatches(data.wildcardMatches || [])
+      setHasWildcard(false)
       
     } catch (error) {
       console.error('Error using wildcard:', error)
       toast({
         title: "Error",
-        description: "Failed to use wildcard",
+        description: error.message,
         status: "error",
       })
+    } finally {
+      console.log('Resetting interaction state')
+      setIsInteractionDisabled(false)
     }
   }
 
@@ -327,6 +391,7 @@ function MultiplayerBingoGame() {
       const data = await response.json();
       setRoomId(data.roomId);
       setPlayers([{ name: playerName, isHost: true }]);
+      setIsHost(true);
       setGameState('waiting');
       
       toast({
@@ -455,6 +520,39 @@ function MultiplayerBingoGame() {
       handleGameOver()
     }
   }, [usedPlayers.length, maxAvailablePlayers, gameState])
+
+  const handlePlayAgain = async () => {
+    try {
+      // Reset game state
+      setGameState('waiting')
+      setIsGameOver(false)
+      setValidSelections([])
+      setSelectedCells([])
+      setUsedPlayers([])
+      setHasWildcard(true)
+      setWildcardMatches([])
+      setPlayerScores({})
+      setFinishedPlayers([])
+      setAllPlayersFinished(false)
+      
+      // Notify other players that host started new game
+      await fetch(`${API_BASE_URL}/api/reset-game`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          roomId,
+          playerName 
+        })
+      })
+    } catch (error) {
+      console.error('Error resetting game:', error)
+      toast({
+        title: "Error",
+        description: "Failed to start new game",
+        status: "error",
+      })
+    }
+  }
 
   if (gameState === 'init') {
     return (
@@ -820,18 +918,29 @@ function MultiplayerBingoGame() {
 
             {/* Actions */}
             <HStack justify="center" spacing={4}>
-              <Button
-                colorScheme="blue"
-                size="lg"
-                onClick={() => window.location.reload()}
-              >
-                Play Again
-              </Button>
+              {isHost && allPlayersFinished && (
+                <Button
+                  colorScheme="blue"
+                  size="lg"
+                  onClick={handlePlayAgain}
+                  bg="linear-gradient(135deg, #3182ce 0%, #2c5282 100%)"
+                  _hover={{
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 4px 12px rgba(49, 130, 206, 0.4)'
+                  }}
+                >
+                  Start New Game
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="lg"
                 onClick={() => window.location.href = '/'}
+                borderColor="rgba(255,255,255,0.2)"
                 color="white"
+                _hover={{
+                  bg: 'rgba(255,255,255,0.1)'
+                }}
               >
                 Exit to Menu
               </Button>

@@ -266,34 +266,84 @@ app.post('/api/cell-select', async (req, res) => {
 
 app.post('/api/use-wildcard', async (req, res) => {
   const { roomId, playerName, currentPlayerId, categories } = req.body;
+  
+  console.log('Wildcard request received:', {
+    roomId,
+    playerName,
+    currentPlayerId,
+    categoriesCount: categories?.length
+  });
+
   const room = activeRooms.get(roomId);
   
   if (!room || !room.currentGame) {
+    console.log('Room or game not found:', { roomId, roomExists: !!room });
     return res.status(404).json({ error: 'Game not found' });
   }
 
   try {
-    const playerState = room.currentGame.playerStates.get(playerName);
+    console.log('Finding current player...');
     const currentPlayer = room.currentGame.card.gameData.players.find(p => p.id === currentPlayerId);
     
-    // Find all categories that match the current player
-    const wildcardMatches = categories
-      .map((cat, index) => ({ cat, index }))
-      .filter(({ cat }) => 
-        currentPlayer.v.some(achievementId => 
-          cat.originalData.some(requirement => requirement.id === achievementId)
-        )
-      )
-      .map(({ index }) => index);
+    if (!currentPlayer) {
+      console.log('Current player not found:', { currentPlayerId });
+      return res.status(400).json({ error: 'Current player not found' });
+    }
 
-    await pusher.trigger(`room-${roomId}`, 'wildcard-used', {
-      playerName,
-      wildcardMatches
+    console.log('Current player achievements:', currentPlayer.v);
+    
+    // Check if there are any possible matches
+    const possibleMatches = categories.filter((category, index) => {
+      const hasMatch = currentPlayer.v.some(achievementId => 
+        category.originalData.some(requirement => requirement.id === achievementId)
+      );
+      console.log('Category check:', {
+        categoryId: index, // Use array index as category ID
+        hasMatch,
+        achievements: category.originalData.map(r => r.id)
+      });
+      return hasMatch;
     });
 
-    res.json({ success: true });
+    console.log('Possible matches found:', possibleMatches.length);
+
+    if (possibleMatches.length === 0) {
+      console.log('No matching categories found');
+      return res.status(200).json({ 
+        wildcardMatches: [],
+        message: 'No matching categories found'
+      });
+    }
+
+    // Get the indices of matching categories
+    const matchIndices = categories.reduce((acc, category, index) => {
+      if (currentPlayer.v.some(achievementId => 
+        category.originalData.some(requirement => requirement.id === achievementId)
+      )) {
+        acc.push(index);
+      }
+      return acc;
+    }, []);
+
+    // Send wildcard matches to all players
+    await pusher.trigger(`room-${roomId}`, 'wildcard-used', {
+      playerName,
+      wildcardMatches: matchIndices
+    });
+
+    console.log('Wildcard response sent:', {
+      matchCount: matchIndices.length,
+      matches: matchIndices
+    });
+
+    res.json({ 
+      success: true,
+      wildcardMatches: matchIndices
+    });
+
   } catch (error) {
-    res.status(500).json({ error: 'Failed to use wildcard' });
+    console.error('Error processing wildcard:', error);
+    res.status(500).json({ error: 'Failed to process wildcard' });
   }
 });
 
@@ -356,6 +406,30 @@ app.post('/api/player-finished', async (req, res) => {
   } catch (error) {
     console.error('Error handling player finished:', error);
     res.status(500).json({ error: 'Failed to process player finished' });
+  }
+});
+
+app.post('/api/reset-game', async (req, res) => {
+  const { roomId, playerName } = req.body;
+  const room = activeRooms.get(roomId);
+  
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  try {
+    // Reset room game state
+    room.currentGame = null;
+    
+    // Notify all players to reset their game
+    await pusher.trigger(`room-${roomId}`, 'game-reset', {
+      playerName
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error resetting game:', error);
+    res.status(500).json({ error: 'Failed to reset game' });
   }
 });
 
