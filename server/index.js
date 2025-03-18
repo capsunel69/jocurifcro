@@ -146,13 +146,15 @@ app.post('/api/start-game', async (req, res) => {
         clearInterval(countdownInterval);
         
         // Generate game data
-        const gameData = generateBingoCard(); // You'll need to implement this
+        const gameData = generateBingoCard();
         room.gameState = 'playing';
         room.currentGame = gameData;
+        room.currentGame.currentPlayer = room.players[0]; // Set first player
         
         // Start the game
         await pusher.trigger(`room-${roomId}`, 'game-started', {
-          gameData
+          gameData,
+          currentPlayer: room.currentGame.currentPlayer
         });
       }
     }, 1000);
@@ -166,10 +168,18 @@ app.post('/api/start-game', async (req, res) => {
 
 // Helper function to generate bingo card data
 function generateBingoCard() {
-  // This is a placeholder - implement your actual bingo card generation logic
+  const categories = [
+    "Category 1", "Category 2", "Category 3", "Category 4",
+    "Category 5", "Category 6", "Category 7", "Category 8",
+    "Category 9", "Category 10", "Category 11", "Category 12",
+    "Category 13", "Category 14", "Category 15", "Category 16"
+  ];
+
   return {
-    categories: [], // Add your categories
-    players: []    // Add your players
+    categories,
+    currentPlayer: null,
+    selectedCells: [],
+    validSelections: []
   };
 }
 

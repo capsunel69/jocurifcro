@@ -274,24 +274,34 @@ function MultiplayerBingoGame() {
 
   const handleStartGame = async () => {
     try {
-      const response = await fetch('/api/start-game', {
+      const response = await fetch(`${API_BASE_URL}/api/start-game`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           roomId,
-          playerName: playerName,
+          playerName
         }),
       });
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error);
+        throw new Error(data.error || 'Failed to start game');
       }
+
+      toast({
+        title: "Starting game...",
+        status: "info",
+      });
+
     } catch (error) {
       console.error('Failed to start game:', error);
-      // Handle error (show toast, etc.)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start game",
+        status: "error",
+      });
     }
   };
 
