@@ -47,6 +47,7 @@ function MultiplayerBingoGame() {
   const [finishedPlayers, setFinishedPlayers] = useState([])
   const [isHost, setIsHost] = useState(false)
   const [allPlayersFinished, setAllPlayersFinished] = useState(false)
+  const [hasFinished, setHasFinished] = useState(false)
 
   const correctSound = new Audio('/sfx/correct_answer.mp3')
   correctSound.volume = 0.15
@@ -220,28 +221,30 @@ function MultiplayerBingoGame() {
       })
 
       channel.bind('player-finished', (data) => {
-        console.log('Player finished event received:', data);
+        console.log('Player finished event received:', data)
         
-        // Use the finalScore from the server
+        // Set the score from the server once and for all
         if (data.finalScore !== undefined) {
-          setPlayerScores(prev => ({
-            ...prev,
-            [data.playerName]: data.finalScore
-          }));
-          console.log(`Setting final score for ${data.playerName} to ${data.finalScore}`);
+          setPlayerScores(prev => {
+            // Only update if the score is different
+            if (prev[data.playerName] !== data.finalScore) {
+              console.log(`Setting final score for ${data.playerName} to ${data.finalScore}`)
+              return {
+                ...prev,
+                [data.playerName]: data.finalScore
+              }
+            }
+            return prev
+          })
         }
         
-        setFinishedPlayers(prev => [...prev, data.playerName]);
-      })
-
-      channel.bind('cell-selected', (data) => {
-        // Update scores in real-time
-        if (data.isValid) {
-          setPlayerScores(prev => ({
-            ...prev,
-            [data.playerName]: (prev[data.playerName] || 0) + 1
-          }))
-        }
+        // Add to finished players list
+        setFinishedPlayers(prev => {
+          if (!prev.includes(data.playerName)) {
+            return [...prev, data.playerName]
+          }
+          return prev
+        })
       })
 
       channel.bind('game-reset', (data) => {
@@ -532,25 +535,29 @@ function MultiplayerBingoGame() {
 
   // Function to notify other players when game is over
   const handleGameOver = async () => {
-    console.log('Handling game over...') // Debug log
+    console.log('Handling game over...')
+    if (hasFinished) {
+      console.log('Already finished, ignoring duplicate call')
+      return
+    }
+    
     try {
+      setHasFinished(true)
       const response = await fetch(`${API_BASE_URL}/api/player-finished`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           roomId,
-          playerName,
-          score: validSelections.length
+          playerName
         })
       })
       
       if (!response.ok) {
         throw new Error('Failed to send game over notification')
       }
-      
-      console.log('Game over notification sent successfully') // Debug log
     } catch (error) {
       console.error('Error notifying game over:', error)
+      // Don't reset hasFinished on error to prevent retries
     }
   }
 

@@ -46,6 +46,9 @@ try {
 // Modify the room data structure
 const activeRooms = new Map();
 
+// Add tracking for finished players
+const finishedPlayers = new Set();
+
 // Helper function to get a random card
 function getRandomCard() {
   return gameCards[Math.floor(Math.random() * gameCards.length)];
@@ -248,7 +251,7 @@ app.post('/api/cell-select', async (req, res) => {
         isValid: true,
         playerState: {
           selectedCells: [...playerState.selectedCells, categoryId],
-          validSelections: [...playerState.validSelections, categoryId],
+          validSelections: playerState.validSelections,
           currentPlayer: nextPlayer,
           lastUsedPlayer: currentPlayerId,
           maxAvailablePlayers: maxAvailablePlayers
@@ -406,6 +409,16 @@ app.post('/api/player-finished', async (req, res) => {
   }
 
   try {
+    // Check if player has already finished to prevent duplicate events
+    const finishedKey = `${roomId}-${playerName}`;
+    if (finishedPlayers.has(finishedKey)) {
+      console.log(`Player ${playerName} already finished, ignoring duplicate request`);
+      return res.json({ success: true, alreadyFinished: true });
+    }
+
+    // Mark player as finished
+    finishedPlayers.add(finishedKey);
+    
     const playerState = room.currentGame.playerStates.get(playerName);
     const finalScore = playerState?.validSelections?.length || 0;
     console.log(`Player ${playerName} finished with ${finalScore} matches`);
@@ -423,7 +436,7 @@ app.post('/api/player-finished', async (req, res) => {
 });
 
 app.post('/api/reset-game', async (req, res) => {
-  const { roomId, playerName } = req.body;
+  const { roomId } = req.body;
   const room = activeRooms.get(roomId);
   
   if (!room) {
@@ -431,18 +444,46 @@ app.post('/api/reset-game', async (req, res) => {
   }
 
   try {
-    // Reset room game state
-    room.currentGame = null;
-    
-    // Notify all players to reset their game
-    await pusher.trigger(`room-${roomId}`, 'game-reset', {
-      playerName
-    });
+    // Clear finished players for this room
+    for (const key of finishedPlayers.keys()) {
+      if (key.startsWith(`${roomId}-`)) {
+        finishedPlayers.delete(key);
+      }
+    }
 
+    // Reset game state
+    room.currentGame = null;
+    room.gameState = 'waiting';
+    
+    await pusher.trigger(`room-${roomId}`, 'game-reset', {});
+    
     res.json({ success: true });
   } catch (error) {
     console.error('Error resetting game:', error);
     res.status(500).json({ error: 'Failed to reset game' });
+  }
+});
+
+// Add this new endpoint to get player state directly
+app.post('/api/get-player-state', async (req, res) => {
+  const { roomId, playerName } = req.body;
+  const room = activeRooms.get(roomId);
+  
+  if (!room || !room.currentGame) {
+    return res.status(404).json({ error: 'Game not found' });
+  }
+  
+  try {
+    const playerState = room.currentGame.playerStates.get(playerName) || { validSelections: [] };
+    console.log(`Sending player state for ${playerName}:`, playerState);
+    
+    res.json({
+      validSelections: playerState.validSelections,
+      totalValidSelections: playerState.validSelections.length
+    });
+  } catch (error) {
+    console.error('Error getting player state:', error);
+    res.status(500).json({ error: 'Failed to get player state' });
   }
 });
 
