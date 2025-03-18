@@ -113,45 +113,39 @@ app.post('/api/start-game', async (req, res) => {
     return res.status(404).json({ error: 'Room not found' });
   }
 
-  // Check if the player is the host
-  const player = room.players.find(p => p.name === playerName);
-  if (!player || !player.isHost) {
-    return res.status(403).json({ error: 'Only host can start the game' });
-  }
-
   try {
-    // Get a random card
+    // Get random game card
     const gameCard = getRandomCard();
-    if (!gameCard) {
-      return res.status(500).json({ error: 'No game cards available' });
-    }
-
-    // Initialize game state
-    room.gameState = 'playing';
+    
+    // Get first random soccer player from the card's players
+    const firstPlayer = gameCard.gameData.players[Math.floor(Math.random() * gameCard.gameData.players.length)];
+    
+    // Initialize game state (shared between all players)
     room.currentGame = {
       card: gameCard,
-      gameMode: gameMode,
       categories: formatCategories(gameCard.gameData.remit),
-      playerStates: room.players.map(p => ({
-        name: p.name,
-        score: 0,
+      currentPlayer: firstPlayer,
+      gameMode,
+      maxAvailablePlayers: gameCard.gameData.players.length,
+      // Track state per user
+      playerStates: new Map(room.players.map(p => [p.name, {
         selectedCells: [],
         validSelections: [],
-        hasWildcard: true,
         usedPlayers: [],
-        maxAvailablePlayers: gameCard.gameData.players.length,
-        currentPlayer: gameCard.gameData.players[0]
-      }))
+        hasWildcard: true,
+        score: 0
+      }]))
     };
 
-    // Notify all players
+    // Notify all players with complete game data
     await pusher.trigger(`room-${roomId}`, 'game-started', {
       gameData: {
         categories: room.currentGame.categories,
         players: gameCard.gameData.players,
         currentCard: gameCard.id,
         gameMode: gameMode,
-        currentPlayer: gameCard.gameData.players[0]
+        currentPlayer: firstPlayer,
+        maxPlayers: gameCard.gameData.players.length
       }
     });
 
@@ -209,39 +203,64 @@ app.post('/api/cell-select', async (req, res) => {
     return res.status(404).json({ error: 'Game not found' });
   }
 
-  const playerState = room.currentGame.playerStates.find(p => p.name === playerName);
-  if (!playerState) {
-    return res.status(404).json({ error: 'Player not found' });
-  }
-
   try {
+    const playerState = room.currentGame.playerStates.get(playerName);
     const category = room.currentGame.categories[categoryId].originalData;
-    const isValidSelection = playerState.currentPlayer.v.some(achievementId => 
+    
+    // Check if current soccer player matches the category
+    const isValidSelection = room.currentGame.currentPlayer.v.some(achievementId => 
       category.some(requirement => requirement.id === achievementId)
     );
 
     if (isValidSelection) {
-      playerState.selectedCells.push(categoryId);
       playerState.validSelections.push(categoryId);
+      playerState.selectedCells.push(categoryId);
+      playerState.usedPlayers.push(room.currentGame.currentPlayer.id);
       playerState.score += 1;
 
-      // Get next player
-      const currentPlayerIndex = room.currentGame.card.gameData.players.findIndex(p => p.id === playerState.currentPlayer.id);
-      const nextPlayerIndex = (currentPlayerIndex + 1) % room.currentGame.card.gameData.players.length;
-      playerState.currentPlayer = room.currentGame.card.gameData.players[nextPlayerIndex];
-    } else {
-      playerState.maxAvailablePlayers = Math.max(playerState.maxAvailablePlayers - 2, playerState.usedPlayers.length + 1);
-    }
+      // Get next random soccer player for this player
+      const remainingPlayers = room.currentGame.card.gameData.players.filter(
+        p => !playerState.usedPlayers.includes(p.id)
+      );
+      
+      const nextPlayer = remainingPlayers[Math.floor(Math.random() * remainingPlayers.length)];
 
-    await pusher.trigger(`room-${roomId}`, 'cell-selected', {
-      playerName,
-      categoryId,
-      isValid: isValidSelection,
-      playerState
-    });
+      // Notify all players about this player's success
+      await pusher.trigger(`room-${roomId}`, 'cell-selected', {
+        playerName,
+        categoryId,
+        isValid: true,
+        playerState: {
+          selectedCells: playerState.selectedCells,
+          validSelections: playerState.validSelections,
+          currentPlayer: nextPlayer,
+          maxAvailablePlayers: room.currentGame.maxAvailablePlayers,
+          usedPlayers: playerState.usedPlayers,
+          score: playerState.score
+        }
+      });
+    } else {
+      // Handle invalid selection - reduce available players for this player
+      playerState.maxAvailablePlayers = Math.max(
+        room.currentGame.maxAvailablePlayers - 2,
+        playerState.usedPlayers.length + 1
+      );
+
+      await pusher.trigger(`room-${roomId}`, 'cell-selected', {
+        playerName,
+        categoryId,
+        isValid: false,
+        playerState: {
+          currentPlayer: room.currentGame.currentPlayer,
+          maxAvailablePlayers: playerState.maxAvailablePlayers,
+          score: playerState.score
+        }
+      });
+    }
 
     res.json({ success: true });
   } catch (error) {
+    console.error('Error processing selection:', error);
     res.status(500).json({ error: 'Failed to process selection' });
   }
 });
