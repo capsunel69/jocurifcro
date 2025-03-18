@@ -988,25 +988,39 @@ function MultiplayerBingoGame() {
                 fontSize="lg"
                 textAlign="center"
               >
-                {players.length - finishedPlayers.length} players still playing...
+                Waiting for {players.length - finishedPlayers.length} player{players.length - finishedPlayers.length > 1 ? 's' : ''} to finish...
               </Text>
             )}
 
             {/* Actions */}
-            <HStack justify="center" spacing={4}>
-              {isHost && allPlayersFinished && (
-                <Button
-                  colorScheme="blue"
-                  size="lg"
-                  onClick={handlePlayAgain}
-                  bg="linear-gradient(135deg, #3182ce 0%, #2c5282 100%)"
-                  _hover={{
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px rgba(49, 130, 206, 0.4)'
-                  }}
-                >
-                  Start New Game
-                </Button>
+            <VStack spacing={4}>
+              {isHost && (
+                <Box position="relative" w="full">
+                  <Button
+                    colorScheme="blue"
+                    size="lg"
+                    onClick={handlePlayAgain}
+                    bg="linear-gradient(135deg, #3182ce 0%, #2c5282 100%)"
+                    w="full"
+                    isDisabled={!allPlayersFinished}
+                    _hover={{
+                      transform: allPlayersFinished ? 'translateY(-2px)' : 'none',
+                      boxShadow: allPlayersFinished ? '0 4px 12px rgba(49, 130, 206, 0.4)' : 'none'
+                    }}
+                  >
+                    Start New Game
+                  </Button>
+                  {!allPlayersFinished && (
+                    <Text
+                      color="gray.400"
+                      fontSize="sm"
+                      textAlign="center"
+                      mt={2}
+                    >
+                      All players must finish before starting a new game
+                    </Text>
+                  )}
+                </Box>
               )}
               <Button
                 variant="outline"
@@ -1014,13 +1028,14 @@ function MultiplayerBingoGame() {
                 onClick={() => window.location.href = '/'}
                 borderColor="rgba(255,255,255,0.2)"
                 color="white"
+                w="full"
                 _hover={{
                   bg: 'rgba(255,255,255,0.1)'
                 }}
               >
                 Exit to Menu
               </Button>
-            </HStack>
+            </VStack>
           </VStack>
         </Container>
       </Box>

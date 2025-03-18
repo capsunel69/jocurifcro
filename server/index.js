@@ -116,10 +116,31 @@ app.post('/api/start-game', async (req, res) => {
     return res.status(404).json({ error: 'Room not found' });
   }
 
+  // Check if all players have finished the current game
+  if (room.currentGame) {
+    const allPlayersFinished = room.players.every(player => {
+      const finishedKey = `${roomId}-${player.name}`;
+      return finishedPlayers.has(finishedKey);
+    });
+
+    if (!allPlayersFinished) {
+      return res.status(400).json({ 
+        error: 'Cannot start new game until all players have finished' 
+      });
+    }
+  }
+
   try {
     // Get random game card
     const gameCard = getRandomCard();
     
+    // Clear finished players for this room
+    for (const key of finishedPlayers.keys()) {
+      if (key.startsWith(`${roomId}-`)) {
+        finishedPlayers.delete(key);
+      }
+    }
+
     // Get first random soccer player from the card's players
     const firstPlayer = gameCard.gameData.players[Math.floor(Math.random() * gameCard.gameData.players.length)];
     
