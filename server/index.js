@@ -124,14 +124,38 @@ app.post('/api/start-game', async (req, res) => {
     return res.status(403).json({ error: 'Only host can start the game' });
   }
 
-  const problem = generateMathProblem();
-  room.currentProblem = problem;
-  room.gameState = 'playing';
+  // Start countdown sequence
+  let countdown = 3;
+  room.gameState = 'countdown';
   
   try {
-    await pusher.trigger(`room-${roomId}`, 'game-started', {
-      problem: problem.question
+    // Initial countdown notification
+    await pusher.trigger(`room-${roomId}`, 'game-countdown', {
+      count: countdown
     });
+
+    // Set up countdown interval
+    const countdownInterval = setInterval(async () => {
+      countdown--;
+      
+      if (countdown > 0) {
+        await pusher.trigger(`room-${roomId}`, 'game-countdown', {
+          count: countdown
+        });
+      } else {
+        clearInterval(countdownInterval);
+        
+        // Generate game data
+        const gameData = generateBingoCard(); // You'll need to implement this
+        room.gameState = 'playing';
+        room.currentGame = gameData;
+        
+        // Start the game
+        await pusher.trigger(`room-${roomId}`, 'game-started', {
+          gameData
+        });
+      }
+    }, 1000);
 
     res.json({ success: true });
   } catch (error) {
@@ -139,6 +163,15 @@ app.post('/api/start-game', async (req, res) => {
     res.status(500).json({ error: 'Failed to start game' });
   }
 });
+
+// Helper function to generate bingo card data
+function generateBingoCard() {
+  // This is a placeholder - implement your actual bingo card generation logic
+  return {
+    categories: [], // Add your categories
+    players: []    // Add your players
+  };
+}
 
 app.post('/api/submit-answer', async (req, res) => {
   const { roomId, playerName, answer } = req.body;
