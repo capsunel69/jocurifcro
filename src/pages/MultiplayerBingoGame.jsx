@@ -87,28 +87,35 @@ function MultiplayerBingoGame() {
         console.log('Cell selected event received:', {
           playerName: data.playerName,
           isValid: data.isValid,
-          categoryId: data.categoryId
+          categoryId: data.categoryId,
+          totalValidSelections: data.totalValidSelections
         });
 
         if (data.isValid) {
-          // Update scores for regular matches
-          setPlayerScores(prev => {
-            const currentScore = prev[data.playerName] || 0;
-            const newScore = currentScore + 1;
-            console.log(`Updating score for ${data.playerName}: ${currentScore} + 1 = ${newScore}`);
-            return {
+          // Use server's total for the score
+          if (data.totalValidSelections !== undefined) {
+            setPlayerScores(prev => ({
               ...prev,
-              [data.playerName]: newScore
-            };
-          });
+              [data.playerName]: data.totalValidSelections
+            }));
+            console.log(`Updated score for ${data.playerName} to ${data.totalValidSelections}`);
+          }
 
-          // Update valid selections for the current player
           if (data.playerName === playerName) {
-            setValidSelections(prev => {
-              const updatedSelections = [...prev, data.categoryId];
-              console.log(`Updated valid selections for ${playerName}:`, updatedSelections);
-              return updatedSelections;
-            });
+            correctSound.play();
+            setValidSelections(prev => [...prev, data.categoryId]);
+            setSelectedCells(data.playerState.selectedCells || [])
+            setCurrentPlayer(data.playerState.currentPlayer)
+            setUsedPlayers(prev => {
+              const newUsedPlayers = [...prev, data.playerState.lastUsedPlayer]
+              if (newUsedPlayers.length >= maxAvailablePlayers) {
+                console.log('Game over triggered by valid selection')
+                setIsGameOver(true)
+                setGameState('finished')
+                handleGameOver()
+              }
+              return newUsedPlayers
+            })
           }
         }
 
@@ -156,62 +163,36 @@ function MultiplayerBingoGame() {
         console.log('Wildcard used event received:', {
           playerName: data.playerName,
           wildcardMatches: data.wildcardMatches,
-          previousValidSelections: data.previousValidSelections
+          totalValidSelections: data.totalValidSelections
         });
 
-        // Filter out any matches that were already counted
-        const newMatches = (data.wildcardMatches || []).filter(
-          matchId => !data.previousValidSelections.includes(matchId)
-        );
-        
-        if (newMatches.length > 0) {
-          console.log(`Processing ${newMatches.length} new wildcard matches for ${data.playerName}`);
-          
-          // Update scores for wildcard matches
-          setPlayerScores(prev => {
-            const currentScore = prev[data.playerName] || 0;
-            const newScore = currentScore + newMatches.length;
-            console.log(`Updating score for ${data.playerName}: ${currentScore} + ${newMatches.length} = ${newScore}`);
-            return {
-              ...prev,
-              [data.playerName]: newScore
-            };
-          });
+        // Use server's total for the score
+        if (data.totalValidSelections !== undefined) {
+          setPlayerScores(prev => ({
+            ...prev,
+            [data.playerName]: data.totalValidSelections
+          }));
+          console.log(`Updated score for ${data.playerName} to ${data.totalValidSelections}`);
+        }
 
-          // Update UI for the current player
-          if (data.playerName === playerName) {
-            // Update valid selections
-            setValidSelections(prev => {
-              const updatedSelections = [...prev, ...newMatches];
-              console.log(`Updated valid selections for ${playerName}:`, updatedSelections);
-              return updatedSelections;
-            });
-
-            // Show wildcard matches in the UI
-            setWildcardMatches(newMatches);
-            
-            // Play sound effect
+        if (data.playerName === playerName) {
+          if (data.wildcardMatches && data.wildcardMatches.length > 0) {
             wildcardSound.play();
-          }
-        } else {
-          console.log(`No new matches found for ${data.playerName}'s wildcard`);
-          if (data.playerName === playerName) {
+            setWildcardMatches(data.wildcardMatches);
+            setValidSelections(prev => [...prev, ...data.wildcardMatches]);
+          } else {
             toast({
-              title: "No New Matches Found",
-              description: "There are no new matching categories for this player.",
+              title: "No Matches Found",
+              description: "There are no matching categories for this player.",
               status: "info",
               duration: 3000,
               isClosable: true,
             });
           }
-        }
-
-        // Always disable wildcard for the player who used it
-        if (data.playerName === playerName) {
+          
           setHasWildcard(false);
+          setIsInteractionDisabled(false);
         }
-        
-        setIsInteractionDisabled(false);
       })
 
       channel.bind('turn-skipped', (data) => {
@@ -239,12 +220,18 @@ function MultiplayerBingoGame() {
       })
 
       channel.bind('player-finished', (data) => {
-        console.log('Player finished event received:', data)
-        setPlayerScores(prev => ({
-          ...prev,
-          [data.playerName]: data.score
-        }))
-        setFinishedPlayers(prev => [...prev, data.playerName])
+        console.log('Player finished event received:', data);
+        
+        // Use the finalScore from the server
+        if (data.finalScore !== undefined) {
+          setPlayerScores(prev => ({
+            ...prev,
+            [data.playerName]: data.finalScore
+          }));
+          console.log(`Setting final score for ${data.playerName} to ${data.finalScore}`);
+        }
+        
+        setFinishedPlayers(prev => [...prev, data.playerName]);
       })
 
       channel.bind('cell-selected', (data) => {

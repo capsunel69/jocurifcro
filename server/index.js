@@ -252,7 +252,8 @@ app.post('/api/cell-select', async (req, res) => {
           currentPlayer: nextPlayer,
           lastUsedPlayer: currentPlayerId,
           maxAvailablePlayers: maxAvailablePlayers
-        }
+        },
+        totalValidSelections: playerState.validSelections.length
       });
     } else {
       // For wrong answers, add current player to used and move to next
@@ -264,7 +265,8 @@ app.post('/api/cell-select', async (req, res) => {
           currentPlayer: nextPlayer,
           lastUsedPlayer: currentPlayerId,
           maxAvailablePlayers: Math.max(maxAvailablePlayers - 2, usedPlayers.length + 1)
-        }
+        },
+        totalValidSelections: playerState.validSelections.length
       });
     }
 
@@ -298,18 +300,26 @@ app.post('/api/use-wildcard', async (req, res) => {
       return res.status(400).json({ error: 'Current player not found' });
     }
 
+    // Log current player's achievements for debugging
+    console.log(`Player ${playerName} achievements:`, currentPlayer.v);
+
     // Get current valid selections
     const playerState = room.currentGame.playerStates.get(playerName) || { validSelections: [] };
     console.log(`Current valid selections for ${playerName}:`, playerState.validSelections);
 
-    // Find new matches
+    // Find new matches with more detailed logging
     const matchIndices = categories.reduce((acc, category, index) => {
       // Skip if already matched
       if (!playerState.validSelections.includes(index)) {
         // Check if ALL requirements are matched
-        const matchesAllRequirements = category.originalData.every(requirement =>
-          currentPlayer.v.includes(requirement.id)
-        );
+        const requirements = category.originalData.map(r => r.id);
+        console.log(`Checking category ${index} with requirements:`, requirements);
+        
+        const matchesAllRequirements = category.originalData.every(requirement => {
+          const isMatched = currentPlayer.v.includes(requirement.id);
+          console.log(`  Requirement ${requirement.id}: ${isMatched ? 'matched' : 'not matched'}`);
+          return isMatched;
+        });
         
         if (matchesAllRequirements) {
           console.log(`New match found: category ${index}`);
@@ -327,11 +337,12 @@ app.post('/api/use-wildcard', async (req, res) => {
       room.currentGame.playerStates.set(playerName, playerState);
     }
 
-    // Send wildcard matches to all players
+    // Send wildcard matches to all players with total valid selections
     await pusher.trigger(`room-${roomId}`, 'wildcard-used', {
       playerName,
       wildcardMatches: matchIndices,
-      previousValidSelections: playerState.validSelections.slice(0, -matchIndices.length)
+      previousValidSelections: playerState.validSelections.slice(0, -matchIndices.length || 0),
+      totalValidSelections: playerState.validSelections.length
     });
 
     res.json({ 
@@ -387,7 +398,7 @@ function getNextPlayer(players, currentPlayerName) {
 }
 
 app.post('/api/player-finished', async (req, res) => {
-  const { roomId, playerName, score } = req.body;
+  const { roomId, playerName } = req.body;
   const room = activeRooms.get(roomId);
   
   if (!room) {
@@ -395,9 +406,13 @@ app.post('/api/player-finished', async (req, res) => {
   }
 
   try {
+    const playerState = room.currentGame.playerStates.get(playerName);
+    const finalScore = playerState?.validSelections?.length || 0;
+    console.log(`Player ${playerName} finished with ${finalScore} matches`);
+
     await pusher.trigger(`room-${roomId}`, 'player-finished', {
       playerName,
-      score
+      finalScore
     });
 
     res.json({ success: true });
