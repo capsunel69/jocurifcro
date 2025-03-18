@@ -71,6 +71,7 @@ function MultiplayerBingoGame() {
           setCategories(data.gameData.categories || [])
           setCurrentPlayer(data.gameData.currentPlayer)
           setMaxAvailablePlayers(data.gameData.maxPlayers)
+          setUsedPlayers([])
           setGameState('playing')
         }
       })
@@ -82,14 +83,33 @@ function MultiplayerBingoGame() {
             setValidSelections(prev => [...prev, data.categoryId])
             setSelectedCells(data.playerState.selectedCells || [])
             setCurrentPlayer(data.playerState.currentPlayer)
-            setUsedPlayers(data.playerState.usedPlayers || [])
+            setUsedPlayers(prev => [...prev, data.playerState.lastUsedPlayer])
             setMaxAvailablePlayers(data.playerState.maxAvailablePlayers)
           } else {
             wrongSound.play()
             setCurrentInvalidSelection(data.categoryId)
-            setMaxAvailablePlayers(data.playerState.maxAvailablePlayers)
+            setMaxAvailablePlayers(prev => Math.max(prev - 2, usedPlayers.length + 1))
+            setUsedPlayers(prev => [...prev, data.playerState.lastUsedPlayer])
+            setCurrentPlayer(data.playerState.currentPlayer)
             setTimeout(() => setCurrentInvalidSelection(null), 800)
           }
+        }
+      })
+
+      channel.bind('wildcard-used', (data) => {
+        if (data.playerName === playerName) {
+          wildcardSound.play()
+          setWildcardMatches(data.wildcardMatches || [])
+          setHasWildcard(false)
+        }
+      })
+
+      channel.bind('turn-skipped', (data) => {
+        if (data.playerName === playerName) {
+          setShowSkipAnimation(true)
+          setTimeout(() => setShowSkipAnimation(false), 1000)
+          setCurrentPlayer(data.nextPlayer)
+          setMaxAvailablePlayers(prev => Math.max(prev - 1, usedPlayers.length + 1))
         }
       })
 
@@ -97,7 +117,7 @@ function MultiplayerBingoGame() {
         pusher.unsubscribe(`room-${roomId}`)
       }
     }
-  }, [roomId, playerName])
+  }, [roomId, playerName, usedPlayers.length])
 
   const handleModeSelect = async (isTimed) => {
     setGameMode(isTimed ? 'timed' : 'classic')
@@ -127,11 +147,27 @@ function MultiplayerBingoGame() {
   }
 
   const handleCellSelect = async (categoryId) => {
+    if (usedPlayers.length >= maxAvailablePlayers) {
+      toast({
+        title: "Game Over",
+        description: "You've used all available players!",
+        status: "info",
+      })
+      return
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/cell-select`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomId, playerName, categoryId })
+        body: JSON.stringify({ 
+          roomId, 
+          playerName, 
+          categoryId,
+          currentPlayerId: currentPlayer?.id,
+          usedPlayers,
+          maxAvailablePlayers
+        })
       })
       
       if (!response.ok) {
@@ -149,13 +185,18 @@ function MultiplayerBingoGame() {
   }
 
   const handleWildcardUse = async () => {
-    if (!hasWildcard || !currentPlayer || currentPlayer.name !== playerName) return
+    if (!hasWildcard) return
     
     try {
       const response = await fetch(`${API_BASE_URL}/api/use-wildcard`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomId, playerName })
+        body: JSON.stringify({ 
+          roomId, 
+          playerName,
+          currentPlayerId: currentPlayer?.id,
+          categories: categories
+        })
       })
       
       if (!response.ok) throw new Error('Failed to use wildcard')
@@ -171,13 +212,16 @@ function MultiplayerBingoGame() {
   }
 
   const handleSkip = async () => {
-    if (!currentPlayer || currentPlayer.name !== playerName) return
-    
     try {
       const response = await fetch(`${API_BASE_URL}/api/skip-turn`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomId, playerName })
+        body: JSON.stringify({ 
+          roomId, 
+          playerName,
+          currentPlayerId: currentPlayer?.id,
+          usedPlayers: usedPlayers
+        })
       })
       
       if (!response.ok) throw new Error('Failed to skip turn')

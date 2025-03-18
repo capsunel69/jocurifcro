@@ -196,7 +196,7 @@ app.post('/api/submit-answer', async (req, res) => {
 });
 
 app.post('/api/cell-select', async (req, res) => {
-  const { roomId, playerName, categoryId } = req.body;
+  const { roomId, playerName, categoryId, currentPlayerId, usedPlayers, maxAvailablePlayers } = req.body;
   const room = activeRooms.get(roomId);
   
   if (!room || !room.currentGame) {
@@ -204,56 +204,55 @@ app.post('/api/cell-select', async (req, res) => {
   }
 
   try {
-    const playerState = room.currentGame.playerStates.get(playerName);
+    const playerState = room.currentGame.playerStates.get(playerName) || {
+      selectedCells: [],
+      validSelections: [],
+      usedPlayers: [],
+      maxAvailablePlayers: room.currentGame.card.gameData.players.length
+    };
+
     const category = room.currentGame.categories[categoryId].originalData;
+    const currentPlayer = room.currentGame.card.gameData.players.find(p => p.id === currentPlayerId);
     
-    // Check if current soccer player matches the category
-    const isValidSelection = room.currentGame.currentPlayer.v.some(achievementId => 
+    const isValidSelection = currentPlayer.v.some(achievementId => 
       category.some(requirement => requirement.id === achievementId)
     );
 
+    // Get remaining players (excluding current and used players)
+    const remainingPlayers = room.currentGame.card.gameData.players.filter(
+      p => !usedPlayers.includes(p.id) && p.id !== currentPlayerId
+    );
+    
+    if (remainingPlayers.length === 0) {
+      return res.status(400).json({ error: 'No more players available' });
+    }
+
+    // Get next random player
+    const nextPlayer = remainingPlayers[Math.floor(Math.random() * remainingPlayers.length)];
+
     if (isValidSelection) {
-      playerState.validSelections.push(categoryId);
-      playerState.selectedCells.push(categoryId);
-      playerState.usedPlayers.push(room.currentGame.currentPlayer.id);
-      playerState.score += 1;
-
-      // Get next random soccer player for this player
-      const remainingPlayers = room.currentGame.card.gameData.players.filter(
-        p => !playerState.usedPlayers.includes(p.id)
-      );
-      
-      const nextPlayer = remainingPlayers[Math.floor(Math.random() * remainingPlayers.length)];
-
-      // Notify all players about this player's success
       await pusher.trigger(`room-${roomId}`, 'cell-selected', {
         playerName,
         categoryId,
         isValid: true,
         playerState: {
-          selectedCells: playerState.selectedCells,
-          validSelections: playerState.validSelections,
+          selectedCells: [...playerState.selectedCells, categoryId],
+          validSelections: [...playerState.validSelections, categoryId],
           currentPlayer: nextPlayer,
-          maxAvailablePlayers: room.currentGame.maxAvailablePlayers,
-          usedPlayers: playerState.usedPlayers,
-          score: playerState.score
+          lastUsedPlayer: currentPlayerId,
+          maxAvailablePlayers: maxAvailablePlayers
         }
       });
     } else {
-      // Handle invalid selection - reduce available players for this player
-      playerState.maxAvailablePlayers = Math.max(
-        room.currentGame.maxAvailablePlayers - 2,
-        playerState.usedPlayers.length + 1
-      );
-
+      // For wrong answers, add current player to used and move to next
       await pusher.trigger(`room-${roomId}`, 'cell-selected', {
         playerName,
         categoryId,
         isValid: false,
         playerState: {
-          currentPlayer: room.currentGame.currentPlayer,
-          maxAvailablePlayers: playerState.maxAvailablePlayers,
-          score: playerState.score
+          currentPlayer: nextPlayer,
+          lastUsedPlayer: currentPlayerId,
+          maxAvailablePlayers: Math.max(maxAvailablePlayers - 2, usedPlayers.length + 1)
         }
       });
     }
@@ -266,20 +265,30 @@ app.post('/api/cell-select', async (req, res) => {
 });
 
 app.post('/api/use-wildcard', async (req, res) => {
-  const { roomId, playerName } = req.body;
+  const { roomId, playerName, currentPlayerId, categories } = req.body;
   const room = activeRooms.get(roomId);
   
-  if (!room) {
-    return res.status(404).json({ error: 'Room not found' });
+  if (!room || !room.currentGame) {
+    return res.status(404).json({ error: 'Game not found' });
   }
 
   try {
-    // Add wildcard logic here
-    const wildcardMatches = []; // Add your wildcard matching logic
+    const playerState = room.currentGame.playerStates.get(playerName);
+    const currentPlayer = room.currentGame.card.gameData.players.find(p => p.id === currentPlayerId);
     
+    // Find all categories that match the current player
+    const wildcardMatches = categories
+      .map((cat, index) => ({ cat, index }))
+      .filter(({ cat }) => 
+        currentPlayer.v.some(achievementId => 
+          cat.originalData.some(requirement => requirement.id === achievementId)
+        )
+      )
+      .map(({ index }) => index);
+
     await pusher.trigger(`room-${roomId}`, 'wildcard-used', {
-      wildcardMatches,
-      playerName
+      playerName,
+      wildcardMatches
     });
 
     res.json({ success: true });
@@ -289,19 +298,25 @@ app.post('/api/use-wildcard', async (req, res) => {
 });
 
 app.post('/api/skip-turn', async (req, res) => {
-  const { roomId, playerName } = req.body;
+  const { roomId, playerName, currentPlayerId, usedPlayers } = req.body;
   const room = activeRooms.get(roomId);
   
-  if (!room) {
-    return res.status(404).json({ error: 'Room not found' });
+  if (!room || !room.currentGame) {
+    return res.status(404).json({ error: 'Game not found' });
   }
 
   try {
-    const nextPlayer = getNextPlayer(room.players, playerName);
+    const playerState = room.currentGame.playerStates.get(playerName);
     
+    // Get next random player for this specific user
+    const remainingPlayers = room.currentGame.card.gameData.players.filter(
+      p => !usedPlayers.includes(p.id)
+    );
+    const nextPlayer = remainingPlayers[Math.floor(Math.random() * remainingPlayers.length)];
+
     await pusher.trigger(`room-${roomId}`, 'turn-skipped', {
-      nextPlayer,
-      playerName
+      playerName,
+      nextPlayer
     });
 
     res.json({ success: true });
