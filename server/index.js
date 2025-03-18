@@ -221,6 +221,14 @@ app.post('/api/cell-select', async (req, res) => {
       );
     });
 
+    if (isValidSelection) {
+      // Update player state with the new valid selection
+      playerState.validSelections = [...playerState.validSelections, categoryId];
+      room.currentGame.playerStates.set(playerName, playerState);
+
+      console.log(`Valid selection for ${playerName}. Total valid selections:`, playerState.validSelections.length);
+    }
+
     // Get remaining players (excluding current and used players)
     const remainingPlayers = room.currentGame.card.gameData.players.filter(
       p => !usedPlayers.includes(p.id) && p.id !== currentPlayerId
@@ -280,40 +288,50 @@ app.post('/api/use-wildcard', async (req, res) => {
   const room = activeRooms.get(roomId);
   
   if (!room || !room.currentGame) {
-    console.log('Room or game not found:', { roomId, roomExists: !!room });
     return res.status(404).json({ error: 'Game not found' });
   }
 
   try {
-    console.log('Finding current player...');
     const currentPlayer = room.currentGame.card.gameData.players.find(p => p.id === currentPlayerId);
     
     if (!currentPlayer) {
-      console.log('Current player not found:', { currentPlayerId });
       return res.status(400).json({ error: 'Current player not found' });
     }
 
-    // Get the indices of matching categories
+    // Get current valid selections
+    const playerState = room.currentGame.playerStates.get(playerName) || { validSelections: [] };
+    console.log(`Current valid selections for ${playerName}:`, playerState.validSelections);
+
+    // Find new matches
     const matchIndices = categories.reduce((acc, category, index) => {
-      // Check if ALL requirements in the category are matched
-      const matchesAllRequirements = category.originalData.every(requirement =>
-        currentPlayer.v.includes(requirement.id)
-      );
-      
-      if (matchesAllRequirements) {
-        console.log(`Category ${index} matched all requirements`);
-        acc.push(index);
+      // Skip if already matched
+      if (!playerState.validSelections.includes(index)) {
+        // Check if ALL requirements are matched
+        const matchesAllRequirements = category.originalData.every(requirement =>
+          currentPlayer.v.includes(requirement.id)
+        );
+        
+        if (matchesAllRequirements) {
+          console.log(`New match found: category ${index}`);
+          acc.push(index);
+        }
       }
       return acc;
     }, []);
 
-    console.log('Matching categories found:', matchIndices.length);
+    console.log(`Found ${matchIndices.length} new matches for ${playerName}`);
+
+    if (matchIndices.length > 0) {
+      // Update player's valid selections
+      playerState.validSelections = [...playerState.validSelections, ...matchIndices];
+      room.currentGame.playerStates.set(playerName, playerState);
+    }
 
     // Send wildcard matches to all players
     await pusher.trigger(`room-${roomId}`, 'wildcard-used', {
       playerName,
       wildcardMatches: matchIndices,
-      previousValidSelections: room.currentGame.playerStates.get(playerName)?.validSelections || []
+      previousValidSelections: playerState.validSelections.slice(0, -matchIndices.length)
     });
 
     res.json({ 

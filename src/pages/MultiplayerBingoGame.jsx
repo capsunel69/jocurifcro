@@ -84,23 +84,37 @@ function MultiplayerBingoGame() {
       })
 
       channel.bind('cell-selected', (data) => {
-        // Always update scores in real-time for all players
+        console.log('Cell selected event received:', {
+          playerName: data.playerName,
+          isValid: data.isValid,
+          categoryId: data.categoryId
+        });
+
         if (data.isValid) {
-          console.log(`Regular match - Updating score for ${data.playerName}`)
+          // Update scores for regular matches
           setPlayerScores(prev => {
-            const newScore = (prev[data.playerName] || 0) + 1 // Each match counts as 1
-            console.log(`New score for ${data.playerName} after regular match: ${newScore}`)
+            const currentScore = prev[data.playerName] || 0;
+            const newScore = currentScore + 1;
+            console.log(`Updating score for ${data.playerName}: ${currentScore} + 1 = ${newScore}`);
             return {
               ...prev,
               [data.playerName]: newScore
-            }
-          })
+            };
+          });
+
+          // Update valid selections for the current player
+          if (data.playerName === playerName) {
+            setValidSelections(prev => {
+              const updatedSelections = [...prev, data.categoryId];
+              console.log(`Updated valid selections for ${playerName}:`, updatedSelections);
+              return updatedSelections;
+            });
+          }
         }
 
         if (data.playerName === playerName) {
           if (data.isValid) {
             correctSound.play()
-            setValidSelections(prev => [...prev, data.categoryId])
             setSelectedCells(data.playerState.selectedCells || [])
             setCurrentPlayer(data.playerState.currentPlayer)
             setUsedPlayers(prev => {
@@ -139,28 +153,65 @@ function MultiplayerBingoGame() {
       })
 
       channel.bind('wildcard-used', (data) => {
+        console.log('Wildcard used event received:', {
+          playerName: data.playerName,
+          wildcardMatches: data.wildcardMatches,
+          previousValidSelections: data.previousValidSelections
+        });
+
+        // Filter out any matches that were already counted
         const newMatches = (data.wildcardMatches || []).filter(
           matchId => !data.previousValidSelections.includes(matchId)
-        )
+        );
         
         if (newMatches.length > 0) {
-          console.log(`Wildcard matches - Updating score for ${data.playerName}`)
+          console.log(`Processing ${newMatches.length} new wildcard matches for ${data.playerName}`);
+          
+          // Update scores for wildcard matches
           setPlayerScores(prev => {
-            const newScore = (prev[data.playerName] || 0) + newMatches.length // Each wildcard match counts as 1
-            console.log(`New score for ${data.playerName} after wildcard: ${newScore}`)
+            const currentScore = prev[data.playerName] || 0;
+            const newScore = currentScore + newMatches.length;
+            console.log(`Updating score for ${data.playerName}: ${currentScore} + ${newMatches.length} = ${newScore}`);
             return {
               ...prev,
               [data.playerName]: newScore
-            }
-          })
+            };
+          });
+
+          // Update UI for the current player
+          if (data.playerName === playerName) {
+            // Update valid selections
+            setValidSelections(prev => {
+              const updatedSelections = [...prev, ...newMatches];
+              console.log(`Updated valid selections for ${playerName}:`, updatedSelections);
+              return updatedSelections;
+            });
+
+            // Show wildcard matches in the UI
+            setWildcardMatches(newMatches);
+            
+            // Play sound effect
+            wildcardSound.play();
+          }
+        } else {
+          console.log(`No new matches found for ${data.playerName}'s wildcard`);
+          if (data.playerName === playerName) {
+            toast({
+              title: "No New Matches Found",
+              description: "There are no new matching categories for this player.",
+              status: "info",
+              duration: 3000,
+              isClosable: true,
+            });
+          }
         }
 
+        // Always disable wildcard for the player who used it
         if (data.playerName === playerName) {
-          wildcardSound.play()
-          setWildcardMatches(data.wildcardMatches || [])
-          setHasWildcard(false)
-          setIsInteractionDisabled(false)
+          setHasWildcard(false);
         }
+        
+        setIsInteractionDisabled(false);
       })
 
       channel.bind('turn-skipped', (data) => {
@@ -889,10 +940,10 @@ function MultiplayerBingoGame() {
             >
               <VStack spacing={3}>
                 <Text color="white" fontSize="xl">
-                  Your Score: {validSelections.length} matches
+                  Your Score: {playerScores[playerName] || 0} matches
                 </Text>
                 <Progress
-                  value={(validSelections.length / categories.length) * 100}
+                  value={(playerScores[playerName] || 0) / categories.length * 100}
                   w="full"
                   colorScheme="blue"
                   borderRadius="full"
