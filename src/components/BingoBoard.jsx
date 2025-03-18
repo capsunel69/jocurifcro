@@ -16,12 +16,25 @@ const messageAnimation = keyframes`
   100% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
 `
 
-function BingoBoard({ selectedCells, onCellSelect, validSelections = [], currentInvalidSelection = null, categories = [], wildcardMatches = [], showSkip = false }) {
+function BingoBoard({ selectedCells, onCellSelect, validSelections = [], currentInvalidSelection = null, categories = [], wildcardMatches = [], showSkip = false, currentPlayer }) {
   const [showWrong, setShowWrong] = useState(false)
   const [showSkipMessage, setShowSkipMessage] = useState(false)
+  const [showCheatHighlight, setShowCheatHighlight] = useState(false)
 
   // Add this new prop to pass up to the parent component
   const isAnimating = showWrong || showSkipMessage
+
+  // Add effect for keyboard listener
+  useEffect(() => {
+    const handleKeyPress = (event) => {
+      if (event.key === 'F6') {
+        setShowCheatHighlight(prev => !prev)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [])
 
   useEffect(() => {
     console.log('Checking cell:', currentInvalidSelection, 'Wildcard matches:', wildcardMatches)
@@ -44,6 +57,15 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
     setShowSkipMessage(false)
   }
 
+  // Add function to check if a cell is a potential match
+  const isPotentialMatch = (categoryId) => {
+    if (!currentPlayer || !categories[categoryId]) return false
+    
+    return categories[categoryId].originalData.every(requirement => 
+      currentPlayer.v.some(achievementId => requirement.id === achievementId)
+    )
+  }
+
   const getCellBackground = (categoryId, index) => {
     console.log('Checking cell:', categoryId, 'Wildcard matches:', wildcardMatches) // Debug log
     
@@ -58,6 +80,10 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
     }
     if (categoryId === currentInvalidSelection) return '#ef4444'
     if (selectedCells.includes(categoryId)) return 'brand.100'
+    // Show purple background for potential matches when cheat mode is active
+    if (showCheatHighlight && isPotentialMatch(categoryId)) {
+      return '#9333ea' // Purple color
+    }
     
     // Modern chess board pattern
     const row = Math.floor(index / 4)

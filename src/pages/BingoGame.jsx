@@ -631,6 +631,7 @@ function BingoGame() {
                 categories={categories}
                 wildcardMatches={wildcardMatches}
                 showSkip={showSkipAnimation}
+                currentPlayer={currentPlayer}
               />
             </Box>
 
