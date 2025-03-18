@@ -634,94 +634,154 @@ function MultiplayerBingoGame() {
         minH="100vh"
         backgroundImage="url('/images/bg-pattern-dark.png')"
         backgroundSize="cover"
-        py={8}
+        py={10}
       >
         <Container maxW="container.md">
           <VStack spacing={8}>
-            <Heading 
-              color="white" 
-              size="2xl"
-              textShadow="0 2px 4px rgba(0,0,0,0.3)"
-            >
-              Multiplayer Bingo
-            </Heading>
+            {/* Hero Section */}
+            <VStack spacing={3}>
+              <Heading 
+                color="white" 
+                size="2xl"
+                textShadow="0 2px 4px rgba(0,0,0,0.3)"
+                bgGradient="linear(to-r, blue.400, purple.500)"
+                bgClip="text"
+              >
+                Multiplayer Bingo
+              </Heading>
+              <Text
+                color="gray.300"
+                fontSize="lg"
+                textAlign="center"
+                maxW="md"
+              >
+                Challenge your friends in a game of football knowledge!
+              </Text>
+            </VStack>
             
-            {/* Room creation/joining */}
+            {/* Main Card */}
             <Box
               bg="rgba(0, 0, 0, 0.4)"
               p={8}
-              borderRadius="xl"
+              borderRadius="2xl"
               backdropFilter="blur(10px)"
               border="1px solid rgba(255,255,255,0.1)"
               w="full"
-              maxW="400px"
+              maxW="450px"
+              boxShadow="0 4px 30px rgba(0, 0, 0, 0.3)"
             >
-              <VStack spacing={6}>
-                <Input
-                  placeholder="Your Name"
-                  value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
-                  bg="rgba(255, 255, 255, 0.1)"
-                  color="white"
-                  border="1px solid rgba(255,255,255,0.2)"
-                  _placeholder={{ color: 'gray.300' }}
-                  _hover={{ bg: 'rgba(255, 255, 255, 0.15)' }}
-                  _focus={{ 
-                    bg: 'rgba(255, 255, 255, 0.15)',
-                    borderColor: 'blue.400'
-                  }}
-                />
+              <VStack spacing={8}>
+                {/* Player Name Input */}
+                <VStack spacing={2} w="full">
+                  <Text
+                    color="gray.300"
+                    fontSize="sm"
+                    fontWeight="medium"
+                    alignSelf="start"
+                  >
+                    Your Name
+                  </Text>
+                  <Input
+                    placeholder="Enter your name"
+                    value={playerName}
+                    onChange={(e) => setPlayerName(e.target.value)}
+                    size="lg"
+                    bg="rgba(255, 255, 255, 0.06)"
+                    color="white"
+                    border="1px solid rgba(255,255,255,0.2)"
+                    _placeholder={{ color: 'gray.400' }}
+                    _hover={{ bg: 'rgba(255, 255, 255, 0.08)' }}
+                    _focus={{ 
+                      bg: 'rgba(255, 255, 255, 0.08)',
+                      borderColor: 'blue.400',
+                      boxShadow: '0 0 0 1px rgba(66, 153, 225, 0.6)'
+                    }}
+                  />
+                </VStack>
                 
+                {/* Create Room Button */}
                 <Button
                   colorScheme="blue"
                   w="full"
                   onClick={handleCreateRoom}
                   size="lg"
-                  bg="linear-gradient(135deg, #3182ce 0%, #2c5282 100%)"
-                  _hover={{
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px rgba(49, 130, 206, 0.4)'
-                  }}
-                >
-                  Create Room
-                </Button>
-                
-                <Text 
-                  color="gray.300"
-                  fontSize="lg"
+                  fontSize="md"
                   fontWeight="bold"
-                >
-                  OR
-                </Text>
-                
-                <Input
-                  placeholder="Room ID"
-                  value={roomId || ''}
-                  onChange={(e) => setRoomId(e.target.value)}
-                  bg="rgba(255, 255, 255, 0.1)"
-                  color="white"
-                  border="1px solid rgba(255,255,255,0.2)"
-                  _placeholder={{ color: 'gray.300' }}
-                  _hover={{ bg: 'rgba(255, 255, 255, 0.15)' }}
-                  _focus={{ 
-                    bg: 'rgba(255, 255, 255, 0.15)',
-                    borderColor: 'green.400'
-                  }}
-                />
-                
-                <Button
-                  colorScheme="green"
-                  w="full"
-                  onClick={handleJoinRoom}
-                  size="lg"
-                  bg="linear-gradient(135deg, #38a169 0%, #276749 100%)"
+                  h="56px"
+                  bg="linear-gradient(135deg, #4299E1 0%, #2B6CB0 100%)"
                   _hover={{
                     transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px rgba(56, 161, 105, 0.4)'
+                    boxShadow: '0 4px 12px rgba(66, 153, 225, 0.4)'
                   }}
+                  _active={{
+                    transform: 'translateY(0)',
+                    boxShadow: 'none'
+                  }}
+                  leftIcon={<MdShuffle size="20px" />}
                 >
-                  Join Room
+                  Create New Room
                 </Button>
+                
+                {/* Divider */}
+                <HStack w="full" justify="center" spacing={4}>
+                  <Box flex={1} h="1px" bg="rgba(255,255,255,0.1)" />
+                  <Text color="gray.400" fontSize="sm" fontWeight="medium">
+                    OR JOIN EXISTING
+                  </Text>
+                  <Box flex={1} h="1px" bg="rgba(255,255,255,0.1)" />
+                </HStack>
+                
+                {/* Join Room Section */}
+                <VStack spacing={4} w="full">
+                  <VStack spacing={2} w="full">
+                    <Text
+                      color="gray.300"
+                      fontSize="sm"
+                      fontWeight="medium"
+                      alignSelf="start"
+                    >
+                      Room Code
+                    </Text>
+                    <Input
+                      placeholder="Enter room code"
+                      value={roomId || ''}
+                      onChange={(e) => setRoomId(e.target.value)}
+                      size="lg"
+                      bg="rgba(255, 255, 255, 0.06)"
+                      color="white"
+                      border="1px solid rgba(255,255,255,0.2)"
+                      _placeholder={{ color: 'gray.400' }}
+                      _hover={{ bg: 'rgba(255, 255, 255, 0.08)' }}
+                      _focus={{ 
+                        bg: 'rgba(255, 255, 255, 0.08)',
+                        borderColor: 'green.400',
+                        boxShadow: '0 0 0 1px rgba(72, 187, 120, 0.6)'
+                      }}
+                    />
+                  </VStack>
+                  
+                  <Button
+                    colorScheme="green"
+                    w="full"
+                    onClick={handleJoinRoom}
+                    size="lg"
+                    fontSize="md"
+                    fontWeight="bold"
+                    h="56px"
+                    bg="linear-gradient(135deg, #48BB78 0%, #2F855A 100%)"
+                    _hover={{
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 4px 12px rgba(72, 187, 120, 0.4)'
+                    }}
+                    _active={{
+                      transform: 'translateY(0)',
+                      boxShadow: 'none'
+                    }}
+                    leftIcon={<MdRefresh size="20px" />}
+                  >
+                    Join Room
+                  </Button>
+                </VStack>
               </VStack>
             </Box>
           </VStack>
@@ -755,7 +815,7 @@ function MultiplayerBingoGame() {
               backdropFilter="blur(10px)"
               border="1px solid rgba(255,255,255,0.1)"
               w="full"
-              maxW="400px"
+              maxW="650px"
             >
               <VStack spacing={6}>
                 <Text 
