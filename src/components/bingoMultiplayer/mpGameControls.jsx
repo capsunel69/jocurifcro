@@ -1,7 +1,7 @@
 import { HStack, Button, Tooltip, VStack, Box } from '@chakra-ui/react'
 import { MdStar, MdSkipNext, MdRefresh, MdShuffle } from 'react-icons/md'
 
-function mpGameControls({ hasWildcard, onWildcardUse, onSkip, isSkipPenalty }) {
+function mpGameControls({ hasWildcard, onWildcardUse, onSkip, isSkipPenalty, isDisabled }) {
   return (
     <VStack spacing={6} w="full" maxW="500px">
       {/* Main controls */}
@@ -15,7 +15,7 @@ function mpGameControls({ hasWildcard, onWildcardUse, onSkip, isSkipPenalty }) {
             bg="linear-gradient(135deg, #ff9800, #f57c00)"
             boxShadow="0 5px 15px rgba(255, 152, 0, 0.3)"
             onClick={onWildcardUse}
-            isDisabled={!hasWildcard || isSkipPenalty}
+            isDisabled={!hasWildcard || isDisabled}
             _hover={{
               transform: 'translateY(-2px)',
               boxShadow: '0 8px 20px rgba(255, 152, 0, 0.4)'
@@ -33,6 +33,7 @@ function mpGameControls({ hasWildcard, onWildcardUse, onSkip, isSkipPenalty }) {
             bg={isSkipPenalty ? 'linear-gradient(135deg, #f44336, #d32f2f)' : 'rgba(255, 255, 255, 0.1)'}
             boxShadow={isSkipPenalty ? '0 5px 15px rgba(244, 67, 54, 0.3)' : 'none'}
             onClick={onSkip}
+            isDisabled={isDisabled}
             _hover={{
               transform: 'translateY(-2px)',
               boxShadow: isSkipPenalty ? '0 8px 20px rgba(244, 67, 54, 0.4)' : '0 5px 15px rgba(255, 255, 255, 0.1)'

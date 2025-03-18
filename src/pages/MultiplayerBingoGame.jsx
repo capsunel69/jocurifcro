@@ -10,7 +10,8 @@ import {
   useToast,
   Badge,
   Input,
-  Center
+  Center,
+  Progress
 } from '@chakra-ui/react'
 import { MdRefresh, MdShuffle } from 'react-icons/md'
 import MpBingoBoard from '../components/bingoMultiplayer/mpBingoBoard'
@@ -40,6 +41,10 @@ function MultiplayerBingoGame() {
   const [players, setPlayers] = useState([])
   const toast = useToast()
   const [showSkipAnimation, setShowSkipAnimation] = useState(false)
+  const [isGameOver, setIsGameOver] = useState(false)
+  const [isInteractionDisabled, setIsInteractionDisabled] = useState(false)
+  const [playerScores, setPlayerScores] = useState({})
+  const [finishedPlayers, setFinishedPlayers] = useState([])
 
   const correctSound = new Audio('/sfx/correct_answer.mp3')
   correctSound.volume = 0.15
@@ -83,15 +88,37 @@ function MultiplayerBingoGame() {
             setValidSelections(prev => [...prev, data.categoryId])
             setSelectedCells(data.playerState.selectedCells || [])
             setCurrentPlayer(data.playerState.currentPlayer)
-            setUsedPlayers(prev => [...prev, data.playerState.lastUsedPlayer])
-            setMaxAvailablePlayers(data.playerState.maxAvailablePlayers)
+            setUsedPlayers(prev => {
+              const newUsedPlayers = [...prev, data.playerState.lastUsedPlayer]
+              if (newUsedPlayers.length >= maxAvailablePlayers) {
+                console.log('Game over triggered by valid selection')
+                setIsGameOver(true)
+                setGameState('finished')
+                handleGameOver()
+              }
+              return newUsedPlayers
+            })
           } else {
             wrongSound.play()
+            setIsInteractionDisabled(true)
             setCurrentInvalidSelection(data.categoryId)
             setMaxAvailablePlayers(prev => Math.max(prev - 2, usedPlayers.length + 1))
-            setUsedPlayers(prev => [...prev, data.playerState.lastUsedPlayer])
+            setUsedPlayers(prev => {
+              const newUsedPlayers = [...prev, data.playerState.lastUsedPlayer]
+              if (newUsedPlayers.length >= maxAvailablePlayers - 2) {
+                console.log('Game over triggered by invalid selection')
+                setIsGameOver(true)
+                setGameState('finished')
+                handleGameOver()
+              }
+              return newUsedPlayers
+            })
             setCurrentPlayer(data.playerState.currentPlayer)
-            setTimeout(() => setCurrentInvalidSelection(null), 800)
+            
+            setTimeout(() => {
+              setCurrentInvalidSelection(null)
+              setIsInteractionDisabled(false)
+            }, 800)
           }
         }
       })
@@ -106,11 +133,44 @@ function MultiplayerBingoGame() {
 
       channel.bind('turn-skipped', (data) => {
         if (data.playerName === playerName) {
+          setIsInteractionDisabled(true)
           setShowSkipAnimation(true)
-          setTimeout(() => setShowSkipAnimation(false), 1000)
           setCurrentPlayer(data.nextPlayer)
-          setMaxAvailablePlayers(prev => Math.max(prev - 1, usedPlayers.length + 1))
-          setUsedPlayers(prev => [...prev, data.skippedPlayerId])
+          setUsedPlayers(prev => {
+            const newUsedPlayers = [...prev, data.skippedPlayerId]
+            setMaxAvailablePlayers(Math.max(maxAvailablePlayers - 1, newUsedPlayers.length + 1))
+            // Check if game should end after skip
+            if (newUsedPlayers.length >= maxAvailablePlayers - 1) {
+              console.log('Game over triggered by skip')
+              setIsGameOver(true)
+              setGameState('finished')
+              handleGameOver()
+            }
+            return newUsedPlayers
+          })
+          setTimeout(() => {
+            setShowSkipAnimation(false)
+            setIsInteractionDisabled(false)
+          }, 1000)
+        }
+      })
+
+      channel.bind('player-finished', (data) => {
+        console.log('Player finished event received:', data)
+        setPlayerScores(prev => ({
+          ...prev,
+          [data.playerName]: data.score
+        }))
+        setFinishedPlayers(prev => [...prev, data.playerName])
+      })
+
+      channel.bind('cell-selected', (data) => {
+        // Update scores in real-time
+        if (data.isValid) {
+          setPlayerScores(prev => ({
+            ...prev,
+            [data.playerName]: (prev[data.playerName] || 0) + 1
+          }))
         }
       })
 
@@ -118,7 +178,7 @@ function MultiplayerBingoGame() {
         pusher.unsubscribe(`room-${roomId}`)
       }
     }
-  }, [roomId, playerName, usedPlayers.length])
+  }, [roomId, playerName, maxAvailablePlayers])
 
   const handleModeSelect = async (isTimed) => {
     setGameMode(isTimed ? 'timed' : 'classic')
@@ -148,6 +208,8 @@ function MultiplayerBingoGame() {
   }
 
   const handleCellSelect = async (categoryId) => {
+    if (isInteractionDisabled || isGameOver) return
+
     if (usedPlayers.length >= maxAvailablePlayers) {
       toast({
         title: "Game Over",
@@ -186,7 +248,7 @@ function MultiplayerBingoGame() {
   }
 
   const handleWildcardUse = async () => {
-    if (!hasWildcard) return
+    if (isInteractionDisabled || isGameOver || !hasWildcard) return
     
     try {
       const response = await fetch(`${API_BASE_URL}/api/use-wildcard`, {
@@ -213,6 +275,8 @@ function MultiplayerBingoGame() {
   }
 
   const handleSkip = async () => {
+    if (isInteractionDisabled || isGameOver) return
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/skip-turn`, {
         method: 'POST',
@@ -333,6 +397,64 @@ function MultiplayerBingoGame() {
   console.log('Current game state:', gameState)
   console.log('Categories:', categories)
   console.log('Current player:', currentPlayer)
+
+  // Function to notify other players when game is over
+  const handleGameOver = async () => {
+    console.log('Handling game over...') // Debug log
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/player-finished`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomId,
+          playerName,
+          score: validSelections.length
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to send game over notification')
+      }
+      
+      console.log('Game over notification sent successfully') // Debug log
+    } catch (error) {
+      console.error('Error notifying game over:', error)
+    }
+  }
+
+  // Debug logs
+  useEffect(() => {
+    console.log('Game state:', {
+      isGameOver,
+      usedPlayers: usedPlayers.length,
+      maxAvailablePlayers,
+      playerScores,
+      finishedPlayers
+    })
+  }, [isGameOver, usedPlayers, maxAvailablePlayers, playerScores, finishedPlayers])
+
+  // Add debug logging for state changes
+  useEffect(() => {
+    console.log('Debug state:', {
+      isGameOver,
+      usedPlayers: usedPlayers.length,
+      maxAvailablePlayers,
+      gameState
+    })
+  }, [isGameOver, usedPlayers, maxAvailablePlayers, gameState])
+
+  // Separate effect to handle game over conditions
+  useEffect(() => {
+    if (usedPlayers.length >= maxAvailablePlayers && gameState === 'playing') {
+      console.log('Game over condition met:', {
+        usedPlayers: usedPlayers.length,
+        maxAvailablePlayers
+      })
+      setIsGameOver(true)
+      setGameState('finished')
+      handleGameOver()
+    }
+  }, [usedPlayers.length, maxAvailablePlayers, gameState])
 
   if (gameState === 'init') {
     return (
@@ -554,6 +676,7 @@ function MultiplayerBingoGame() {
               onWildcardUse={handleWildcardUse}
               onSkip={handleSkip}
               isSkipPenalty={skipPenalty}
+              isDisabled={isInteractionDisabled}
             />
 
             {/* Bingo board */}
@@ -567,6 +690,7 @@ function MultiplayerBingoGame() {
                   currentInvalidSelection={currentInvalidSelection}
                   wildcardMatches={wildcardMatches}
                   showSkip={showSkipAnimation}
+                  isDisabled={isInteractionDisabled}
                 />
               </Box>
             )}
@@ -592,6 +716,130 @@ function MultiplayerBingoGame() {
         </Container>
       </Box>
     );
+  }
+
+  // Render game over screen immediately when isGameOver is true
+  if (isGameOver || gameState === 'finished') {
+    console.log('Rendering game over screen with:', {
+      validSelections: validSelections.length,
+      playerScores,
+      finishedPlayers,
+      gameState
+    })
+    
+    return (
+      <Box
+        position="fixed"
+        top={0}
+        left={0}
+        right={0}
+        bottom={0}
+        bg="rgba(0, 0, 0, 0.9)"
+        backdropFilter="blur(8px)"
+        zIndex={1000}
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Container maxW="container.md">
+          <VStack spacing={8} align="stretch">
+            <Heading
+              color="white"
+              size="2xl"
+              textAlign="center"
+              textShadow="0 2px 4px rgba(0,0,0,0.3)"
+            >
+              Game Over!
+            </Heading>
+
+            {/* Player's score */}
+            <Box
+              bg="rgba(255, 255, 255, 0.1)"
+              p={6}
+              borderRadius="xl"
+              border="1px solid rgba(255,255,255,0.2)"
+            >
+              <VStack spacing={3}>
+                <Text color="white" fontSize="xl">
+                  Your Score: {validSelections.length} matches
+                </Text>
+                <Progress
+                  value={(validSelections.length / categories.length) * 100}
+                  w="full"
+                  colorScheme="blue"
+                  borderRadius="full"
+                />
+              </VStack>
+            </Box>
+
+            {/* Leaderboard */}
+            <Box
+              bg="rgba(255, 255, 255, 0.1)"
+              p={6}
+              borderRadius="xl"
+              border="1px solid rgba(255,255,255,0.2)"
+            >
+              <VStack spacing={4} align="stretch">
+                <Heading size="md" color="white">
+                  Room Leaderboard
+                </Heading>
+                {Object.entries(playerScores)
+                  .sort(([,a], [,b]) => b - a)
+                  .map(([player, score]) => (
+                    <HStack
+                      key={player}
+                      justify="space-between"
+                      bg={player === playerName ? "rgba(66, 153, 225, 0.3)" : "rgba(255, 255, 255, 0.05)"}
+                      p={3}
+                      borderRadius="md"
+                    >
+                      <Text color="white">
+                        {player} {player === playerName && "(You)"}
+                      </Text>
+                      <HStack spacing={3}>
+                        <Text color="white">{score} matches</Text>
+                        {finishedPlayers.includes(player) && (
+                          <Badge colorScheme="green">Finished</Badge>
+                        )}
+                      </HStack>
+                    </HStack>
+                  ))}
+              </VStack>
+            </Box>
+
+            {/* Players still in game */}
+            {players.length > finishedPlayers.length && (
+              <Text
+                color="gray.400"
+                fontSize="lg"
+                textAlign="center"
+              >
+                {players.length - finishedPlayers.length} players still playing...
+              </Text>
+            )}
+
+            {/* Actions */}
+            <HStack justify="center" spacing={4}>
+              <Button
+                colorScheme="blue"
+                size="lg"
+                onClick={() => window.location.reload()}
+              >
+                Play Again
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => window.location.href = '/'}
+                color="white"
+              >
+                Exit to Menu
+              </Button>
+            </HStack>
+          </VStack>
+        </Container>
+      </Box>
+    )
   }
 
   // Fallback UI in case no state matches

@@ -16,7 +16,7 @@ const messageAnimation = keyframes`
   100% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
 `
 
-function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], currentInvalidSelection = null, categories = [], wildcardMatches = [], showSkip = false }) {
+function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], currentInvalidSelection = null, categories = [], wildcardMatches = [], showSkip = false, isDisabled }) {
   const [showWrong, setShowWrong] = useState(false)
   const [showSkipMessage, setShowSkipMessage] = useState(false)
 
@@ -112,8 +112,8 @@ function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], curre
         {categories.map((category, index) => (
           <GridItem
             key={index}
-            onClick={() => !isCellDisabled(index) && onCellSelect(index)}
-            cursor={isCellDisabled(index) ? 'default' : 'pointer'}
+            onClick={() => !isDisabled && !isCellDisabled(index) && onCellSelect(index)}
+            cursor={isDisabled ? 'not-allowed' : isCellDisabled(index) ? 'default' : 'pointer'}
             p={2}
             bg={getCellBackground(index, index)}
             transition="all 0.3s ease"
@@ -121,8 +121,8 @@ function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], curre
             boxShadow={getCellBoxShadow(index)}
             position="relative"
             _hover={{
-              transform: !isCellDisabled(index) && 'translateY(-2px)',
-              bg: isCellDisabled(index) 
+              transform: !isDisabled && !isCellDisabled(index) && 'translateY(-2px)',
+              bg: isDisabled ? getCellBackground(index, index) : isCellDisabled(index) 
                 ? getCellBackground(index, index) 
                 : 'rgba(255, 255, 255, 0.1)'
             }}

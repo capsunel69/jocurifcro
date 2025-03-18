@@ -338,6 +338,27 @@ function getNextPlayer(players, currentPlayerName) {
   return players[nextIndex];
 }
 
+app.post('/api/player-finished', async (req, res) => {
+  const { roomId, playerName, score } = req.body;
+  const room = activeRooms.get(roomId);
+  
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  try {
+    await pusher.trigger(`room-${roomId}`, 'player-finished', {
+      playerName,
+      score
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error handling player finished:', error);
+    res.status(500).json({ error: 'Failed to process player finished' });
+  }
+});
+
 app.listen(3001, () => {
   console.log('Server running on port 3001');
 }); 
