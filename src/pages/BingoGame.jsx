@@ -209,17 +209,24 @@ function BingoGame() {
     
     const category = categories[categoryId].originalData
     
-    const isValidSelection = currentPlayer.v.some(achievementId => 
-      category.some(requirement => requirement.id === achievementId)
-    )
+    console.log('Checking player:', currentPlayer.f, 'with achievements:', currentPlayer.v)
+    console.log('Against category requirements:', category.map(req => req.id))
+    
+    // For categories with multiple requirements, player must match ALL requirements
+    const isValidSelection = category.every(requirement => {
+      const hasRequirement = currentPlayer.v.includes(requirement.id)
+      console.log(`Checking requirement ${requirement.id} (${requirement.displayName}):`, hasRequirement)
+      return hasRequirement
+    })
+
+    console.log('Final validation result:', isValidSelection)
 
     if (isValidSelection) {
       correctSound.play().catch(e => console.log('Audio play failed:', e))
-      const newSelectedCells = [...selectedCells, categoryId]
-      setSelectedCells(newSelectedCells)
+      setSelectedCells([...selectedCells, categoryId])
       setValidSelections([...validSelections, categoryId])
       
-      if (newSelectedCells.length >= categories.length) {
+      if (selectedCells.length + 1 >= categories.length) {
         endGame(true)
         return
       }

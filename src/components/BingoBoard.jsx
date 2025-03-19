@@ -62,16 +62,47 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
     
     const category = categories[categoryId].originalData
     
+    console.log('Checking player:', currentPlayer.f, 'with achievements:', currentPlayer.v)
+    console.log('Against category requirements:', category.map(req => req.id))
+    
     // For categories with multiple requirements, player must match ALL requirements
-    const isValidSelection = category.every(requirement => 
-      currentPlayer.v.includes(requirement.id)
-    )
+    const isValidSelection = category.every(requirement => {
+      const hasRequirement = currentPlayer.v.includes(requirement.id)
+      console.log(`Checking requirement ${requirement.id} (${requirement.displayName}):`, hasRequirement)
+      return hasRequirement
+    })
+
+    console.log('Final validation result:', isValidSelection)
 
     if (isValidSelection) {
       correctSound.play().catch(e => console.log('Audio play failed:', e))
-      // ... rest of the success handling code ...
+      const newSelectedCells = [...selectedCells, categoryId]
+      setSelectedCells(newSelectedCells)
+      setValidSelections([...validSelections, categoryId])
+      
+      if (newSelectedCells.length >= categories.length) {
+        endGame(true)
+        return
+      }
+
+      if (gameMode === 'timed') {
+        setTimeRemaining(10)
+      }
+      moveToNextPlayer()
     } else {
-      // ... rest of the failure handling code ...
+      wrongSound.play().catch(e => console.log('Audio play failed:', e))
+      setCurrentInvalidSelection(categoryId)
+      setWrongAttempts(prev => prev + 1)
+      setMaxAvailablePlayers(prev => Math.max(prev - 1, usedPlayers.length + 1))
+      
+      setTimeout(() => {
+        setCurrentInvalidSelection(null)
+        moveToNextPlayer()
+      }, 800)
+
+      if (gameMode === 'timed') {
+        setTimeRemaining(10)
+      }
     }
   }
 
