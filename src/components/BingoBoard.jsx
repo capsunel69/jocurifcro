@@ -57,12 +57,32 @@ function BingoBoard({ selectedCells, onCellSelect, validSelections = [], current
     setShowSkipMessage(false)
   }
 
-  // Add function to check if a cell is a potential match
+  const handleCellSelect = (categoryId) => {
+    if (!currentPlayer) return
+    
+    const category = categories[categoryId].originalData
+    
+    // For categories with multiple requirements, player must match ALL requirements
+    const isValidSelection = category.every(requirement => 
+      currentPlayer.v.includes(requirement.id)
+    )
+
+    if (isValidSelection) {
+      correctSound.play().catch(e => console.log('Audio play failed:', e))
+      // ... rest of the success handling code ...
+    } else {
+      // ... rest of the failure handling code ...
+    }
+  }
+
+  // Update the isPotentialMatch function as well
   const isPotentialMatch = (categoryId) => {
     if (!currentPlayer || !categories[categoryId]) return false
     
-    return categories[categoryId].originalData.every(requirement => 
-      currentPlayer.v.some(achievementId => requirement.id === achievementId)
+    const category = categories[categoryId].originalData
+    
+    return category.every(requirement => 
+      currentPlayer.v.includes(requirement.id)
     )
   }
 
