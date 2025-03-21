@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CircularProgress, CircularProgressLabel, Box } from '@chakra-ui/react';
 
-const mpTimer = ({ seconds, onTimeUp }) => {
+const MpTimer = ({ seconds, onTimeUp }) => {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
@@ -34,4 +34,4 @@ const mpTimer = ({ seconds, onTimeUp }) => {
   );
 };
 
-export default mpTimer;
+export default MpTimer;

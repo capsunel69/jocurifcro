@@ -53,35 +53,52 @@ function MultiplayerBingoGame() {
   const [inputPlayerName, setInputPlayerName] = useState('')
   const [inputRoomId, setInputRoomId] = useState('')
 
-  // Replace the sound initialization and create a function to reliably play sounds
-  const correctSoundSrc = '/sfx/correct_answer.mp3'
-  const wrongSoundSrc = '/sfx/wrong_answer.mp3'
-  const wildcardSoundSrc = '/sfx/wildcard.mp3'
+  // Replace the sound initialization and playSound function with this updated version
+  const soundEffects = {
+    correct: new Audio('/sfx/correct_answer.mp3'),
+    wrong: new Audio('/sfx/wrong_answer.mp3'),
+    wildcard: new Audio('/sfx/wildcard.mp3')
+  };
 
-  // Create a sound player function that ensures sounds play every time
-  const playSound = (soundSrc) => {
-    const sound = new Audio(soundSrc);
+  // Set volume for all sounds
+  Object.values(soundEffects).forEach(sound => {
     sound.volume = 0.15;
-    
-    // Create a promise that resolves when the sound can play
-    const playPromise = sound.play();
-    
-    // If the browser doesn't support promises for audio playback
-    if (playPromise !== undefined) {
-      playPromise.catch(error => {
-        console.log("Sound play error (ignoring):", error);
-      });
-    }
-  }
+    // Preload sounds
+    sound.preload = 'auto';
+    // Add error handling
+    sound.onerror = (e) => console.log('Sound loading error:', e);
+  });
 
-  const correctSound = new Audio('/sfx/correct_answer.mp3')
-  correctSound.volume = 0.15
-  
-  const wrongSound = new Audio('/sfx/wrong_answer.mp3')
-  wrongSound.volume = 0.15
-  
-  const wildcardSound = new Audio('/sfx/wildcard.mp3')
-  wildcardSound.volume = 0.15
+  // Updated sound player function
+  const playSound = async (type) => {
+    try {
+      const sound = soundEffects[type];
+      if (!sound) return;
+
+      // Reset the sound to start
+      sound.currentTime = 0;
+      
+      // Try to play the sound
+      try {
+        // Create user interaction context
+        await sound.play();
+      } catch (error) {
+        if (error.name === 'NotAllowedError') {
+          // Handle autoplay restriction
+          console.log('Sound autoplay blocked by browser');
+          
+          // Create a new Audio instance for this specific play
+          const newSound = new Audio(sound.src);
+          newSound.volume = 0.15;
+          await newSound.play().catch(e => console.log('Fallback sound play failed:', e));
+        } else {
+          console.log('Sound play error:', error);
+        }
+      }
+    } catch (error) {
+      console.log('Sound system error:', error);
+    }
+  };
 
   const [isTimerActive, setIsTimerActive] = useState(false)
 
@@ -138,8 +155,8 @@ function MultiplayerBingoGame() {
 
         // Only handle the rest if it's for the current player
         if (data.playerName === playerName) {
-          // Always show as if the selection was successful
-          playSound(correctSoundSrc);
+          // Use the new sound format
+          playSound('correct');
           
           // Update selected cells
           const updatedSelectedCells = data.playerState.selectedCells || [];
@@ -192,7 +209,7 @@ function MultiplayerBingoGame() {
             );
             
             if (newMatches.length > 0) {
-              playSound(wildcardSoundSrc);
+              playSound('wildcard');
               
               // Update wildcard matches (for visualization)
               setWildcardMatches(newMatches);
@@ -1169,11 +1186,9 @@ function MultiplayerBingoGame() {
                   >
                     {currentPlayer.f} {currentPlayer.g}
                   </Text>
-                  {gameMode === 'timed' && (
-                    <Box position="relative" display="flex" justifyContent="center" mb={2}>
-                      <MpTimer seconds={timeRemaining} onTimeUp={handleTimeUp} />
-                    </Box>
-                  )}
+                  <Box position="relative" display="flex" justifyContent="center" mb={2}>
+                    <MpTimer seconds={timeRemaining} onTimeUp={handleTimeUp} />
+                  </Box>
                 </HStack>
               </Box>
             )}
