@@ -86,6 +86,12 @@ function formatCategories(remitData) {
   }));
 }
 
+// Add this helper function near the top of the file
+function sanitizeChannelName(channelName) {
+  // Replace spaces and special characters with underscores
+  return channelName.replace(/[^a-zA-Z0-9-_]/g, '_');
+}
+
 app.post('/api/create-room', (req, res) => {
   const { playerName } = req.body;
   
@@ -369,9 +375,11 @@ app.post('/api/cell-select', async (req, res) => {
         }
       });
       
-      // Explicitly trigger game over for this player
-      console.log(`Sending game-over event to ${playerName} in room ${roomId}`);
-      await pusher.trigger(`room-${roomId}-${playerName}`, 'game-over', {
+      // Use sanitized channel name for player-specific events
+      const playerChannel = sanitizeChannelName(`room-${roomId}-${playerName}`);
+      console.log(`Sending game-over event on channel: ${playerChannel}`);
+      
+      await pusher.trigger(playerChannel, 'game-over', {
         reason: 'all-categories-selected'
       });
       
@@ -405,9 +413,11 @@ app.post('/api/cell-select', async (req, res) => {
         }
       });
       
-      // Explicitly trigger game over for this player
-      console.log(`Sending game-over event to ${playerName} in room ${roomId}`);
-      await pusher.trigger(`room-${roomId}-${playerName}`, 'game-over', {
+      // Use sanitized channel name for player-specific events
+      const playerChannel = sanitizeChannelName(`room-${roomId}-${playerName}`);
+      console.log(`Sending game-over event on channel: ${playerChannel}`);
+      
+      await pusher.trigger(playerChannel, 'game-over', {
         reason: 'no-more-players'
       });
       
@@ -520,8 +530,11 @@ app.post('/api/use-wildcard', async (req, res) => {
     if (playerState.selectedCells.length >= 16) {
       console.log(`GAME OVER: ${playerName} has selected all 16 categories via wildcard`);
       
-      // Explicitly trigger game over for this player
-      await pusher.trigger(`room-${roomId}-${playerName}`, 'game-over', {
+      // Use sanitized channel name for player-specific events
+      const playerChannel = sanitizeChannelName(`room-${roomId}-${playerName}`);
+      console.log(`Sending game-over event on channel: ${playerChannel}`);
+      
+      await pusher.trigger(playerChannel, 'game-over', {
         reason: 'all-categories-selected-via-wildcard'
       });
       
@@ -593,12 +606,18 @@ app.post('/api/player-finished', async (req, res) => {
 
   try {
     // First verify the player is still in the room
-    if (!room.players.some(p => p.name === playerName)) {
-      console.log(`Player ${playerName} not found in room, ignoring finish request`);
+    const playerInRoom = room.players.some(p => p.name === playerName);
+    if (!playerInRoom) {
+      console.log(`Player ${playerName} not found in room ${roomId}, cleaning up state`);
+      // Clean up any lingering state for this player
+      const finishedKey = `${roomId}-${playerName}`;
+      finishedPlayers.delete(finishedKey);
+      if (room.currentGame?.playerStates) {
+        room.currentGame.playerStates.delete(playerName);
+      }
       return res.status(400).json({ error: 'Player not in room' });
     }
 
-    // Rest of existing player-finished code...
     const finishedKey = `${roomId}-${playerName}`;
     if (finishedPlayers.has(finishedKey)) {
       console.log(`Player ${playerName} already finished, ignoring duplicate request`);
@@ -606,13 +625,20 @@ app.post('/api/player-finished', async (req, res) => {
     }
 
     finishedPlayers.add(finishedKey);
-    const playerState = room.currentGame.playerStates.get(playerName);
+    const playerState = room.currentGame?.playerStates.get(playerName);
     const finalScore = playerState?.validSelections?.length || 0;
     console.log(`Player ${playerName} finished with ${finalScore} matches`);
 
+    // Check if all remaining players have finished
+    const allPlayersFinished = room.players.every(player => {
+      const key = `${roomId}-${player.name}`;
+      return finishedPlayers.has(key);
+    });
+
     await pusher.trigger(`room-${roomId}`, 'player-finished', {
       playerName,
-      finalScore
+      finalScore,
+      allPlayersFinished
     });
 
     res.json({ success: true });
@@ -631,37 +657,53 @@ app.post('/api/reset-game', async (req, res) => {
   }
 
   try {
-    console.log(`Resetting game in room ${roomId}`);
+    console.log(`Attempting to reset game in room ${roomId}`);
     
-    // Verify all remaining players are still connected
-    const activePlayers = room.players.filter(player => {
-      // Check if player is still connected (you might need to implement this)
-      return true; // Placeholder for actual connection check
+    // First, clean up any finished players that are no longer in the room
+    const currentPlayerNames = new Set(room.players.map(p => p.name));
+    for (const key of finishedPlayers.keys()) {
+      if (key.startsWith(`${roomId}-`)) {
+        const playerName = key.substring(roomId.length + 1);
+        if (!currentPlayerNames.has(playerName)) {
+          console.log(`Cleaning up finished state for departed player: ${playerName}`);
+          finishedPlayers.delete(key);
+        }
+      }
+    }
+
+    // Verify all current players have finished
+    const allFinished = room.players.every(player => {
+      const key = `${roomId}-${player.name}`;
+      return finishedPlayers.has(key);
     });
 
-    // Update room's player list
-    room.players = activePlayers;
-    
-    // Only allow reset if there are enough players
-    if (activePlayers.length < 2) {
+    if (!allFinished) {
+      console.log('Cannot reset: Not all players have finished');
+      return res.status(400).json({ 
+        error: 'Cannot reset until all active players have finished' 
+      });
+    }
+
+    // Check minimum player count
+    if (room.players.length < 2) {
+      console.log(`Cannot reset: Not enough players (${room.players.length})`);
       return res.status(400).json({ 
         error: 'Not enough active players to start new game' 
       });
     }
 
-    // Clear finished players for this room
+    // Proceed with reset
     for (const key of finishedPlayers.keys()) {
       if (key.startsWith(`${roomId}-`)) {
         finishedPlayers.delete(key);
       }
     }
 
-    // Reset game state
     room.currentGame = null;
     room.gameState = 'waiting';
     
     await pusher.trigger(`room-${roomId}`, 'game-reset', {
-      activePlayers: room.players // Send updated player list
+      activePlayers: room.players
     });
     
     res.json({ success: true });
