@@ -67,38 +67,32 @@ const activeRooms = new Map();
 // Add tracking for finished players
 const finishedPlayers = new Set();
 
-// Add this helper function to track disconnected players
+// Remove the webhook setup and replace with connection tracking
+const activeConnections = new Map();
 const disconnectedPlayers = new Set();
 
-// Add disconnect tracking to the WebSocket connection handler
-pusher.webhook(app);
-
-app.post('/pusher/webhook', (req, res) => {
-  const events = req.body.events || [];
-  events.forEach(event => {
-    if (event.name === 'client_disconnected') {
-      console.log(`Client disconnected: ${event.channel}`);
-      const [_, roomId, playerName] = event.channel.split('-');
-      if (roomId && playerName) {
-        handlePlayerDisconnect(roomId, playerName);
-      }
-    }
-  });
-  res.sendStatus(200);
-});
-
-function handlePlayerDisconnect(roomId, playerName) {
-  console.log(`Handling disconnect for player ${playerName} in room ${roomId}`);
-  disconnectedPlayers.add(`${roomId}-${playerName}`);
+// Add this function to handle connection status
+function updatePlayerConnection(roomId, playerName, isConnected) {
+  const key = `${roomId}-${playerName}`;
   
-  // Clean up after a short delay to handle temporary disconnects
-  setTimeout(() => {
-    if (disconnectedPlayers.has(`${roomId}-${playerName}`)) {
-      console.log(`Player ${playerName} did not reconnect, cleaning up`);
-      cleanupPlayer(roomId, playerName);
-      disconnectedPlayers.delete(`${roomId}-${playerName}`);
-    }
-  }, 5000); // 5 second grace period
+  if (isConnected) {
+    console.log(`Player ${playerName} connected in room ${roomId}`);
+    activeConnections.set(key, Date.now());
+    disconnectedPlayers.delete(key);
+  } else {
+    console.log(`Player ${playerName} disconnected in room ${roomId}`);
+    activeConnections.delete(key);
+    disconnectedPlayers.add(key);
+    
+    // Clean up after a delay
+    setTimeout(() => {
+      if (disconnectedPlayers.has(key)) {
+        console.log(`Cleaning up disconnected player ${playerName}`);
+        cleanupPlayer(roomId, playerName);
+        disconnectedPlayers.delete(key);
+      }
+    }, 5000);
+  }
 }
 
 // Helper function to get a random card
@@ -163,22 +157,23 @@ app.post('/api/join-room', async (req, res) => {
   room.players.push({ name: playerName, isHost: false });
   console.log(`Player ${playerName} joined room ${roomId}. Current players:`, room.players.map(p => p.name));
   
-  // Notify ALL players (make sure this is sent to everyone in the room)
+  // Track the new connection
+  updatePlayerConnection(roomId, playerName, true);
+  
   try {
     await pusher.trigger(`room-${roomId}`, 'player-joined', {
       players: room.players,
-      playerName
+      playerName,
+      timestamp: Date.now()
     });
     
-    // Send current room state to joining player
     res.json({ 
       success: true,
       currentPlayers: room.players
     });
   } catch (error) {
     console.error('Error notifying players about new join:', error);
-    // Remove player if notification fails
-    room.players = room.players.filter(p => p.name !== playerName);
+    cleanupPlayer(roomId, playerName);
     res.status(500).json({ error: 'Failed to join room' });
   }
 });
@@ -694,24 +689,14 @@ function getPlayerStatus(roomId) {
     disconnectedPlayers: []
   };
 
-  // Filter out disconnected players first
-  const activePlayers = room.players.filter(player => 
-    !disconnectedPlayers.has(`${roomId}-${player.name}`)
-  );
-
-  activePlayers.forEach(player => {
-    const finishedKey = `${roomId}-${player.name}`;
-    if (finishedPlayers.has(finishedKey)) {
+  room.players.forEach(player => {
+    const key = `${roomId}-${player.name}`;
+    if (disconnectedPlayers.has(key)) {
+      status.disconnectedPlayers.push(player.name);
+    } else if (finishedPlayers.has(key)) {
       status.finishedPlayers.push(player.name);
     } else {
       status.unfinishedPlayers.push(player.name);
-    }
-  });
-
-  // Add disconnected players to the list
-  room.players.forEach(player => {
-    if (disconnectedPlayers.has(`${roomId}-${player.name}`)) {
-      status.disconnectedPlayers.push(player.name);
     }
   });
 
@@ -766,6 +751,8 @@ app.post('/api/player-exit', async (req, res) => {
       return res.status(404).json({ error: 'Room not found' });
     }
 
+    updatePlayerConnection(roomId, playerName, false);
+    
     const isHost = room.players[0]?.name === playerName;
     console.log(`${isHost ? 'Host' : 'Regular'} player ${playerName} is exiting`);
 
