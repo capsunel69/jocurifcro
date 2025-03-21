@@ -932,9 +932,19 @@ function MultiplayerBingoGame() {
                 size="2xl"
                 textShadow="0 2px 4px rgba(0,0,0,0.3)"
                 bgGradient="linear(to-r, blue.400, purple.500)"
+                textAlign="center"
                 bgClip="text"
               >
                 Multiplayer Bingo
+                <Text
+                  fontSize="md"
+                  color="gray.400"
+                  fontWeight="normal"
+                  textAlign="center"
+                  mt={2}
+                >
+                  Beta Version - Improvements Coming Soon
+                </Text>
               </Heading>
               <Text
                 color="gray.300"
