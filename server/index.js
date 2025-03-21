@@ -19,13 +19,25 @@ const pusher = new Pusher({
 const allowedOrigins = [
   'http://localhost:5173',
   'http://192.168.0.54:5173',
-  'https://jocurifcro.vercel.app', // Add your frontend production URL
+  'https://jocurifcro.vercel.app',
+  'https://fotbal-comedie.ro'
 ];
 
 const app = express();
 app.use(cors({
-  origin: allowedOrigins,
-  methods: ['GET', 'POST']
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  methods: ['GET', 'POST'],
+  credentials: true,
+  optionsSuccessStatus: 200
 }));
 app.use(express.json());
 
