@@ -313,52 +313,30 @@ function MultiplayerBingoGame() {
       })
 
       channel.bind('game-reset', (data) => {
-        // Reset game state for all players
-        setGameState('waiting')
-        setIsGameOver(false)
-        setValidSelections([])
-        setSelectedCells([])
-        setUsedPlayers([])
-        setHasWildcard(true)
-        setWildcardMatches([])
-        setPlayerScores({})
-        setFinishedPlayers([])
-        setAllPlayersFinished(false)
+        console.log('Game reset event received:', data);
+        setGameState('waiting');
+        setPlayers(data.activePlayers || []);
+        toast({
+          title: "Game Reset",
+          description: data.reason || "The game has been reset.",
+          status: "info",
+          duration: 5000,
+        });
       })
 
       // Add/update player-left event handler
       channel.bind('player-left', (data) => {
-        console.log('Player left event:', data);
+        console.log('Player left event received:', data);
+        setPlayers(data.remainingPlayers || []);
         
-        // Update players list without the player who left
-        setPlayers(data.remainingPlayers);
-        
-        // Remove the player from finished players if they were there
-        if (finishedPlayers.includes(data.playerName)) {
-          setFinishedPlayers(prev => prev.filter(name => name !== data.playerName));
-        }
-        
-        // Remove player from scores
-        setPlayerScores(prev => {
-          const newScores = {...prev};
-          delete newScores[data.playerName];
-          return newScores;
-        });
-        
-        toast({
-          title: "Player left",
-          description: `${data.playerName} has left the game`,
-          status: "info",
-        });
-        
-        // After a player leaves, recalculate if all players are finished
-        const remaining = data.remainingPlayers.filter(p => 
-          !finishedPlayers.includes(p.name) || p.name === data.playerName
-        ).length;
-        
-        // Update allPlayersFinished based on the new state
-        if (remaining === 0) {
-          setAllPlayersFinished(true);
+        if (data.remainingPlayers.length < 2) {
+          setGameState('waiting');
+          toast({
+            title: "Game Reset",
+            description: "Not enough players to continue. Returning to lobby.",
+            status: "info",
+            duration: 5000,
+          });
         }
       });
 
@@ -408,7 +386,8 @@ function MultiplayerBingoGame() {
       });
 
       return () => {
-        pusher.unsubscribe(`room-${roomId}`)
+        channel.unbind_all();
+        pusher.unsubscribe(`room-${roomId}`);
       }
     }
   }, [roomId, playerName, maxAvailablePlayers, gameState, toast])

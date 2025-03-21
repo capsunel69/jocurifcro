@@ -20,7 +20,8 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://192.168.0.54:5173',
   'https://jocurifcro.vercel.app',
-  'https://fotbal-comedie.ro'
+  'https://fotbal-comedie.ro',
+  'http://140.82.39.237:3001'
 ];
 
 const app = express();
