@@ -101,19 +101,30 @@ function MultiplayerBingoGame() {
       const channel = pusher.subscribe(`room-${roomId}`)
       
       channel.bind('game-started', (data) => {
-        console.log('Game started data:', data)
-        if (data.gameData) {
-          setCategories(data.gameData.categories || [])
-          setCurrentPlayer(data.gameData.currentPlayer)
-          setMaxAvailablePlayers(data.gameData.maxPlayers)
-          setUsedPlayers([])
-          setGameState('playing')
-          setGameMode('timed')
-          
-          // Initialize timer for this player
-          setTimeRemaining(10)
-          setIsTimerActive(true)
-        }
+        console.log('Game started event received:', data);
+        
+        // Reset all game state when a new game starts
+        setValidSelections([]);
+        setSelectedCells([]);
+        setUsedPlayers([]);
+        setWildcardMatches([]);
+        setHasWildcard(true);
+        setIsGameOver(false);
+        setHasFinished(false);
+        setAllPlayersFinished(false);
+        setPlayerScores({});
+        setFinishedPlayers([]);
+        
+        // Set new game data
+        setCategories(data.gameData.categories);
+        setCurrentPlayer(data.gameData.currentPlayer);
+        setMaxAvailablePlayers(data.gameData.maxPlayers);
+        setGameState('playing');
+        
+        // Reset timer
+        setTimeRemaining(10);
+        setIsTimerActive(true);
+        setIsInteractionDisabled(false);
       })
 
       channel.bind('cell-selected', (data) => {
@@ -758,7 +769,8 @@ function MultiplayerBingoGame() {
 
   const handlePlayAgain = async () => {
     try {
-      setHasFinished(false); // Reset finished state
+      // Reset all game-related state first
+      setHasFinished(false);
       setGameState('waiting');
       setIsGameOver(false);
       setValidSelections([]);
@@ -769,8 +781,13 @@ function MultiplayerBingoGame() {
       setPlayerScores({});
       setFinishedPlayers([]);
       setAllPlayersFinished(false);
+      setCurrentPlayer(null);
+      setIsTimerActive(false);
+      setTimeRemaining(10);
+      setIsInteractionDisabled(false);
       
-      await fetch(`${API_BASE_URL}/api/reset-game`, {
+      // Make the API call to reset the game
+      const response = await fetch(`${API_BASE_URL}/api/reset-game`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -778,6 +795,11 @@ function MultiplayerBingoGame() {
           playerName 
         })
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to reset game');
+      }
+
     } catch (error) {
       console.error('Error resetting game:', error);
       toast({
@@ -1176,7 +1198,7 @@ function MultiplayerBingoGame() {
                   currentInvalidSelection={currentInvalidSelection}
                   wildcardMatches={wildcardMatches}
                   showSkip={showSkipAnimation}
-                  isDisabled={isInteractionDisabled}
+                  isDisabled={isInteractionDisabled || isGameOver || gameState !== 'playing'}
                   currentPlayer={currentPlayer}
                 />
               </Box>

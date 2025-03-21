@@ -51,20 +51,36 @@ function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], wildc
     )
   }
 
+  const handleCellClick = (index) => {
+    if (isCellDisabled(index) || isDisabled || !currentPlayer) {
+      return;
+    }
+    onCellSelect(index);
+  }
+
+  const isCellDisabled = (categoryId) => {
+    return isDisabled || 
+           selectedCells.includes(categoryId) || 
+           wildcardMatches.includes(categoryId) ||
+           !currentPlayer;
+  }
+
   const getCellBackground = (categoryId, index) => {
+    if (!categories[categoryId]) return '#0f172a';
+    
     if (wildcardMatches.includes(categoryId)) {
-      return '#FFD700'
+      return '#FFD700';
     }
     if (selectedCells.includes(categoryId)) {
-      return '#22c55e'
+      return '#22c55e';
     }
     if (showCheatHighlight && isPotentialMatch(categoryId)) {
-      return '#9333ea'
+      return '#9333ea';
     }
     
-    const row = Math.floor(index / 4)
-    const col = index % 4
-    return (row + col) % 2 === 0 ? '#0f172a' : '#1e293b'
+    const row = Math.floor(index / 4);
+    const col = index % 4;
+    return (row + col) % 2 === 0 ? '#0f172a' : '#1e293b';
   }
 
   const getCellBoxShadow = (categoryId) => {
@@ -75,10 +91,6 @@ function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], wildc
       return '0 0 20px rgba(0, 184, 148, 0.5)'
     }
     return '0 4px 12px rgba(0, 0, 0, 0.2)'
-  }
-
-  const isCellDisabled = (categoryId) => {
-    return selectedCells.includes(categoryId) || wildcardMatches.includes(categoryId);
   }
 
   const formatCategoryText = (category) => {
@@ -126,10 +138,7 @@ function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], wildc
         {categories.map((category, index) => (
           <GridItem
             key={index}
-            onClick={() => {
-              if (isCellDisabled(index) || isDisabled) return;
-              onCellSelect(index);
-            }}
+            onClick={() => handleCellClick(index)}
             cursor={isCellDisabled(index) || isDisabled ? 'default' : 'pointer'}
             p={2}
             bg={getCellBackground(index, index)}
