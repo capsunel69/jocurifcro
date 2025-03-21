@@ -16,9 +16,15 @@ const pusher = new Pusher({
   useTLS: true
 });
 
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://192.168.0.54:5173',
+  'https://jocurifcro.vercel.app', // Add your frontend production URL
+];
+
 const app = express();
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://192.168.0.54:5173'], // Allow both localhost and IP access
+  origin: allowedOrigins,
   methods: ['GET', 'POST']
 }));
 app.use(express.json());

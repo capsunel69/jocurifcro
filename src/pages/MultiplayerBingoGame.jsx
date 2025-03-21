@@ -20,7 +20,7 @@ import MpTimer from '../components/bingoMultiplayer/mpTimer'
 import MpGameModeSelect from '../components/bingoMultiplayer/mpGameModeSelect'
 import pusher from '../services/pusher'
 
-const API_BASE_URL = 'http://192.168.0.54:3001'
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 function MultiplayerBingoGame() {
   const [gameMode, setGameMode] = useState(null)
