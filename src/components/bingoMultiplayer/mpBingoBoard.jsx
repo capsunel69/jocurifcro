@@ -16,16 +16,10 @@ const messageAnimation = keyframes`
   100% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
 `
 
-function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], currentInvalidSelection = null, categories = [], wildcardMatches = [], showSkip = false, isDisabled, currentPlayer }) {
+function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], wildcardMatches = [], showSkip = false, isDisabled, currentPlayer, categories = [] }) {
   const [showWrong, setShowWrong] = useState(false)
   const [showSkipMessage, setShowSkipMessage] = useState(false)
   const [showCheatHighlight, setShowCheatHighlight] = useState(false)
-
-  useEffect(() => {
-    if (currentInvalidSelection !== null) {
-      setShowWrong(true)
-    }
-  }, [currentInvalidSelection])
 
   useEffect(() => {
     if (showSkip) {
@@ -61,11 +55,9 @@ function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], curre
     if (wildcardMatches.includes(categoryId)) {
       return '#FFD700'
     }
-    if (validSelections.includes(categoryId)) {
+    if (selectedCells.includes(categoryId)) {
       return '#22c55e'
     }
-    if (categoryId === currentInvalidSelection) return '#ef4444'
-    if (selectedCells.includes(categoryId)) return 'brand.100'
     if (showCheatHighlight && isPotentialMatch(categoryId)) {
       return '#9333ea'
     }
@@ -79,15 +71,14 @@ function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], curre
     if (wildcardMatches.includes(categoryId)) {
       return '0 0 20px rgba(255, 215, 0, 0.5)'
     }
-    if (validSelections.includes(categoryId)) {
+    if (selectedCells.includes(categoryId)) {
       return '0 0 20px rgba(0, 184, 148, 0.5)'
     }
-    if (categoryId === currentInvalidSelection) return '0 0 20px rgba(225, 112, 85, 0.5)'
     return '0 4px 12px rgba(0, 0, 0, 0.2)'
   }
 
   const isCellDisabled = (categoryId) => {
-    return validSelections.includes(categoryId)
+    return selectedCells.includes(categoryId) || wildcardMatches.includes(categoryId);
   }
 
   const formatCategoryText = (category) => {
@@ -135,8 +126,11 @@ function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], curre
         {categories.map((category, index) => (
           <GridItem
             key={index}
-            onClick={() => !isDisabled && !isCellDisabled(index) && onCellSelect(index)}
-            cursor={isDisabled ? 'not-allowed' : isCellDisabled(index) ? 'default' : 'pointer'}
+            onClick={() => {
+              if (isCellDisabled(index) || isDisabled) return;
+              onCellSelect(index);
+            }}
+            cursor={isCellDisabled(index) || isDisabled ? 'default' : 'pointer'}
             p={2}
             bg={getCellBackground(index, index)}
             transition="all 0.3s ease"
@@ -144,10 +138,8 @@ function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], curre
             boxShadow={getCellBoxShadow(index)}
             position="relative"
             _hover={{
-              transform: !isDisabled && !isCellDisabled(index) && 'translateY(-2px)',
-              bg: isDisabled ? getCellBackground(index, index) : isCellDisabled(index) 
-                ? getCellBackground(index, index) 
-                : 'rgba(255, 255, 255, 0.1)'
+              transform: isCellDisabled(index) || isDisabled ? 'none' : 'translateY(-2px)',
+              bg: isCellDisabled(index) || isDisabled ? getCellBackground(index, index) : 'rgba(255, 255, 255, 0.1)'
             }}
             _before={{
               content: '""',

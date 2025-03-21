@@ -106,51 +106,42 @@ function MultiplayerBingoGame() {
 
         // Only handle the rest if it's for the current player
         if (data.playerName === playerName) {
+          // Always show as if the selection was successful
+          correctSound.play();
+          
+          // Update selected cells
+          const updatedSelectedCells = data.playerState.selectedCells || [];
+          setSelectedCells(updatedSelectedCells);
+          setCurrentPlayer(data.playerState.currentPlayer);
+          
+          // If it's actually valid, track it for scoring
           if (data.isValid) {
-            correctSound.play();
             setValidSelections(prev => [...prev, data.categoryId]);
-            setSelectedCells(data.playerState.selectedCells || []);
-            setCurrentPlayer(data.playerState.currentPlayer);
-            setUsedPlayers(prev => {
-              const newUsedPlayers = [...prev, data.playerState.lastUsedPlayer];
-              if (newUsedPlayers.length >= maxAvailablePlayers) {
-                console.log('Game over triggered by valid selection');
-                setIsGameOver(true);
-                setGameState('finished');
-                handleGameOver();
-              }
-              return newUsedPlayers;
-            });
-            
-            // Only reset timer for this player
-            setTimeRemaining(10);
-            setIsTimerActive(true);
-          } else {
-            wrongSound.play();
-            setIsInteractionDisabled(true);
-            setCurrentInvalidSelection(data.categoryId);
-            setMaxAvailablePlayers(prev => Math.max(prev - 2, usedPlayers.length + 1));
-            setUsedPlayers(prev => {
-              const newUsedPlayers = [...prev, data.playerState.lastUsedPlayer];
-              if (newUsedPlayers.length >= maxAvailablePlayers - 2) {
-                console.log('Game over triggered by invalid selection');
-                setIsGameOver(true);
-                setGameState('finished');
-                handleGameOver();
-              }
-              return newUsedPlayers;
-            });
-            setCurrentPlayer(data.playerState.currentPlayer);
-            
-            setTimeout(() => {
-              setCurrentInvalidSelection(null);
-              setIsInteractionDisabled(false);
-            }, 800);
-            
-            // Only reset timer for this player
-            setTimeRemaining(10);
-            setIsTimerActive(true);
           }
+          
+          // Update used players
+          setUsedPlayers(prev => {
+            const newUsedPlayers = [...prev, data.playerState.lastUsedPlayer];
+            
+            // Check if game is over either by using all players OR by selecting all categories
+            const allCategoriesSelected = updatedSelectedCells.length >= 16;
+            if (newUsedPlayers.length >= maxAvailablePlayers || allCategoriesSelected) {
+              console.log('Game over triggered by ' + 
+                (allCategoriesSelected ? 'all categories selected' : 'all players used'));
+              setIsGameOver(true);
+              setGameState('finished');
+              handleGameOver();
+            }
+            
+            return newUsedPlayers;
+          });
+          
+          // Only reset timer for this player
+          setTimeRemaining(10);
+          setIsTimerActive(true);
+          
+          // IMPORTANT: Re-enable interactions after receiving server response
+          setIsInteractionDisabled(false);
         }
       })
 
@@ -344,23 +335,19 @@ function MultiplayerBingoGame() {
 
       // Add the game-over handler to force mark everyone as finished
       channel.bind('game-over', (data) => {
-        console.log('Game over event received');
+        console.log('Game over event received!', data);
         setIsGameOver(true);
         setGameState('finished');
-        
-        // Only mark ourselves as finished if we haven't already
-        if (!finishedPlayers.includes(playerName)) {
-          handlePlayerFinished();
-        }
-        
-        // Check if all players are finished
-        const allFinished = players.every(player => 
-          finishedPlayers.includes(player.name)
-        );
-        
-        if (allFinished) {
-          setAllPlayersFinished(true);
-        }
+        handleGameOver();
+      });
+
+      // Also bind to the player-specific channel
+      const playerChannel = pusher.subscribe(`room-${roomId}-${playerName}`);
+      playerChannel.bind('game-over', (data) => {
+        console.log(`Player-specific game-over event received for ${playerName}!`, data);
+        setIsGameOver(true);
+        setGameState('finished');
+        handleGameOver();
       });
 
       return () => {
@@ -377,18 +364,28 @@ function MultiplayerBingoGame() {
   }, [players, finishedPlayers])
 
   useEffect(() => {
-    let timerInterval;
+    if (gameState !== 'playing') return;
     
-    if (gameState === 'playing' && gameMode === 'timed' && isTimerActive && timeRemaining > 0) {
-      timerInterval = setInterval(() => {
+    let timer = null;
+    
+    if (isTimerActive && timeRemaining > 0) {
+      timer = setTimeout(() => {
         setTimeRemaining(prev => prev - 1);
       }, 1000);
+    } else if (isTimerActive && timeRemaining === 0) {
+      console.log('Timer expired, auto-skipping');
+      setIsTimerActive(false);
+      
+      // Make sure we're not already in the middle of an interaction
+      if (!isInteractionDisabled) {
+        handleSkip();
+      }
     }
     
     return () => {
-      if (timerInterval) clearInterval(timerInterval);
+      if (timer) clearTimeout(timer);
     };
-  }, [gameState, gameMode, isTimerActive, timeRemaining]);
+  }, [timeRemaining, isTimerActive, gameState, isInteractionDisabled]);
 
   const handleModeSelect = async () => {
     setGameMode('timed')
@@ -418,44 +415,47 @@ function MultiplayerBingoGame() {
   }
 
   const handleCellSelect = async (categoryId) => {
-    if (isInteractionDisabled || isGameOver) return
-
-    if (usedPlayers.length >= maxAvailablePlayers) {
-      toast({
-        title: "Game Over",
-        description: "You've used all available players!",
-        status: "info",
-      })
-      return
-    }
-
+    if (isInteractionDisabled || selectedCells.includes(categoryId)) return;
+    
     try {
+      setIsInteractionDisabled(true);
+      
+      // Make API request to check cell
       const response = await fetch(`${API_BASE_URL}/api/cell-select`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          roomId, 
-          playerName, 
+        body: JSON.stringify({
+          roomId,
+          playerName,
           categoryId,
           currentPlayerId: currentPlayer?.id,
-          usedPlayers,
-          maxAvailablePlayers
+          usedPlayers: usedPlayers
         })
-      })
+      });
       
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to process selection')
+        throw new Error('Failed to select cell');
       }
+      
+      // Don't play sound or update selectedCells here - wait for server event
+      
+      // We need to keep isInteractionDisabled true until we receive the server response
+      // If we never get a response, make sure we reset after 2 seconds as a fallback
+      setTimeout(() => {
+        setIsInteractionDisabled(false);
+      }, 2000);
+      
     } catch (error) {
-      console.error('Error selecting cell:', error)
+      console.error('Error selecting cell:', error);
+      // Make sure we reset the interaction state on error
+      setIsInteractionDisabled(false);
       toast({
         title: "Error",
-        description: error.message,
-        status: "error",
-      })
+        description: "Failed to select cell",
+        status: "error"
+      });
     }
-  }
+  };
 
   const handleWildcardUse = async () => {
     if (isInteractionDisabled || isGameOver || !hasWildcard) {

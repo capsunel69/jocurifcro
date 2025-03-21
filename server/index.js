@@ -263,85 +263,166 @@ app.post('/api/submit-answer', async (req, res) => {
   });
 });
 
+function checkCategoryValid(categoryId, playerId, card) {
+  try {
+    // Get the category from the card
+    const category = card.gameData.remit[categoryId];
+    if (!category) return false;
+    
+    // Get the player from the card
+    const player = card.gameData.players.find(p => p.id === playerId);
+    if (!player) return false;
+    
+    // Category may be an array of requirements or a single requirement
+    const requirements = Array.isArray(category) ? category : [category];
+    
+    // Check if player satisfies all requirements
+    return requirements.every(requirement => 
+      // Check if the player's achievements include the requirement's ID
+      player.v && player.v.includes(requirement.id)
+    );
+  } catch (error) {
+    console.error('Error checking category validity:', error);
+    return false;
+  }
+}
+
 app.post('/api/cell-select', async (req, res) => {
-  const { roomId, playerName, categoryId, currentPlayerId, usedPlayers, maxAvailablePlayers } = req.body;
+  const { roomId, playerName, categoryId, currentPlayerId } = req.body;
+  
+  console.log(`Cell select request from ${playerName} for category ${categoryId} with player ${currentPlayerId}`);
+  
   const room = activeRooms.get(roomId);
   
   if (!room || !room.currentGame) {
+    console.log(`Room ${roomId} not found or no current game`);
     return res.status(404).json({ error: 'Game not found' });
   }
 
   try {
+    // Get player state
     const playerState = room.currentGame.playerStates.get(playerName) || {
       selectedCells: [],
       validSelections: [],
       usedPlayers: [],
-      maxAvailablePlayers: room.currentGame.card.gameData.players.length
+      hasWildcard: true
     };
-
-    const category = room.currentGame.categories[categoryId].originalData;
-    const currentPlayer = room.currentGame.card.gameData.players.find(p => p.id === currentPlayerId);
     
-    const isValidSelection = currentPlayer.v.some(achievementId => {
-      // Check if ALL requirements in the category are matched
-      return category.every(requirement => 
-        currentPlayer.v.includes(requirement.id)
-      );
-    });
-
-    if (isValidSelection) {
-      // Update player state with the new valid selection
-      playerState.validSelections = [...playerState.validSelections, categoryId];
-      room.currentGame.playerStates.set(playerName, playerState);
-
-      console.log(`Valid selection for ${playerName}. Total valid selections:`, playerState.validSelections.length);
+    // Always mark cell as selected regardless of correctness
+    if (!playerState.selectedCells.includes(categoryId)) {
+      playerState.selectedCells.push(categoryId);
+      console.log(`Added category ${categoryId} to selected cells for ${playerName}. Total: ${playerState.selectedCells.length}/16`);
     }
-
-    // Get remaining players (excluding current and used players)
-    const remainingPlayers = room.currentGame.card.gameData.players.filter(
-      p => !usedPlayers.includes(p.id) && p.id !== currentPlayerId
+    
+    // Add current player to used players
+    if (currentPlayerId && !playerState.usedPlayers.includes(currentPlayerId)) {
+      playerState.usedPlayers.push(currentPlayerId);
+      console.log(`Added player ${currentPlayerId} to used players for ${playerName}. Total: ${playerState.usedPlayers.length}`);
+    }
+    
+    // Check if the selection is actually valid (for scoring purposes)
+    const isValid = checkCategoryValid(categoryId, currentPlayerId, room.currentGame.card);
+    console.log(`Category ${categoryId} with player ${currentPlayerId} is ${isValid ? 'valid' : 'invalid'}`);
+    
+    if (isValid && !playerState.validSelections.includes(categoryId)) {
+      // Only add to valid selections if it's actually valid
+      playerState.validSelections.push(categoryId);
+      console.log(`Added category ${categoryId} to valid selections for ${playerName}. Total valid: ${playerState.validSelections.length}`);
+    }
+    
+    // Update player state in room
+    room.currentGame.playerStates.set(playerName, playerState);
+    
+    // Check if all 16 categories have been selected - GAME OVER CONDITION 1
+    if (playerState.selectedCells.length >= 16) {
+      console.log(`GAME OVER: ${playerName} has selected all 16 categories`);
+      
+      // Notify about the cell selection first
+      await pusher.trigger(`room-${roomId}`, 'cell-selected', {
+        playerName,
+        categoryId,
+        isValid,
+        totalValidSelections: playerState.validSelections.length,
+        playerState: {
+          selectedCells: playerState.selectedCells, 
+          validSelections: playerState.validSelections,
+          usedPlayers: playerState.usedPlayers,
+          lastUsedPlayer: currentPlayerId
+        }
+      });
+      
+      // Explicitly trigger game over for this player
+      console.log(`Sending game-over event to ${playerName} in room ${roomId}`);
+      await pusher.trigger(`room-${roomId}-${playerName}`, 'game-over', {
+        reason: 'all-categories-selected'
+      });
+      
+      return res.status(200).json({ 
+        success: true,
+        gameOver: true, 
+        reason: 'all-categories-selected'
+      });
+    }
+    
+    // Choose next player from those not in usedPlayers - GAME OVER CONDITION 2
+    const availablePlayers = room.currentGame.card.gameData.players.filter(
+      p => !playerState.usedPlayers.includes(p.id)
     );
     
-    if (remainingPlayers.length === 0) {
-      return res.status(400).json({ error: 'No more players available' });
-    }
-
-    // Get next random player
-    const nextPlayer = remainingPlayers[Math.floor(Math.random() * remainingPlayers.length)];
-
-    if (isValidSelection) {
+    // Game over check - no more available players
+    if (availablePlayers.length === 0) {
+      console.log(`GAME OVER: ${playerName} has used all available players`);
+      
+      // Notify about the cell selection first
       await pusher.trigger(`room-${roomId}`, 'cell-selected', {
         playerName,
         categoryId,
-        isValid: true,
+        isValid,
+        totalValidSelections: playerState.validSelections.length,
         playerState: {
-          selectedCells: [...playerState.selectedCells, categoryId],
+          selectedCells: playerState.selectedCells, 
           validSelections: playerState.validSelections,
-          currentPlayer: nextPlayer,
-          lastUsedPlayer: currentPlayerId,
-          maxAvailablePlayers: maxAvailablePlayers
-        },
-        totalValidSelections: playerState.validSelections.length
+          usedPlayers: playerState.usedPlayers,
+          lastUsedPlayer: currentPlayerId
+        }
       });
-    } else {
-      // For wrong answers, add current player to used and move to next
-      await pusher.trigger(`room-${roomId}`, 'cell-selected', {
-        playerName,
-        categoryId,
-        isValid: false,
-        playerState: {
-          currentPlayer: nextPlayer,
-          lastUsedPlayer: currentPlayerId,
-          maxAvailablePlayers: Math.max(maxAvailablePlayers - 2, usedPlayers.length + 1)
-        },
-        totalValidSelections: playerState.validSelections.length
+      
+      // Explicitly trigger game over for this player
+      console.log(`Sending game-over event to ${playerName} in room ${roomId}`);
+      await pusher.trigger(`room-${roomId}-${playerName}`, 'game-over', {
+        reason: 'no-more-players'
+      });
+      
+      return res.status(200).json({ 
+        success: true,
+        gameOver: true, 
+        reason: 'no-more-players'
       });
     }
-
+    
+    // Game continues - select next player
+    const nextPlayer = availablePlayers[Math.floor(Math.random() * availablePlayers.length)];
+    console.log(`Game continues for ${playerName}. Next player: ${nextPlayer.id}`);
+    
+    // Notify all players about the cell selection
+    await pusher.trigger(`room-${roomId}`, 'cell-selected', {
+      playerName,
+      categoryId,
+      isValid,
+      totalValidSelections: playerState.validSelections.length,
+      playerState: {
+        selectedCells: playerState.selectedCells,
+        validSelections: playerState.validSelections, 
+        usedPlayers: playerState.usedPlayers,
+        lastUsedPlayer: currentPlayerId,
+        currentPlayer: nextPlayer
+      }
+    });
+    
     res.json({ success: true });
   } catch (error) {
-    console.error('Error processing selection:', error);
-    res.status(500).json({ error: 'Failed to process selection' });
+    console.error('Error handling cell selection:', error);
+    res.status(500).json({ error: 'Failed to process cell selection' });
   }
 });
 
