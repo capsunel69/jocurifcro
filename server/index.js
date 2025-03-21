@@ -672,96 +672,142 @@ function getPlayerStatus(roomId) {
   return status;
 }
 
-// Update the reset-game endpoint with more detailed checks
-app.post('/api/reset-game', async (req, res) => {
-  const { roomId } = req.body;
+// Add these helper functions at the top
+function cleanupPlayer(roomId, playerName) {
   const room = activeRooms.get(roomId);
+  if (!room) return;
+
+  // Remove from players array
+  room.players = room.players.filter(p => p.name !== playerName);
   
-  if (!room) {
-    console.log(`Reset attempted for non-existent room: ${roomId}`);
-    return res.status(404).json({ error: 'Room not found' });
+  // Clear player state
+  if (room.currentGame?.playerStates) {
+    room.currentGame.playerStates.delete(playerName);
   }
 
+  // Clear finished state
+  const finishedKey = `${roomId}-${playerName}`;
+  if (finishedPlayers.has(finishedKey)) {
+    console.log(`Clearing finished state for ${playerName}`);
+    finishedPlayers.delete(finishedKey);
+  }
+}
+
+function resetRoom(roomId) {
+  const room = activeRooms.get(roomId);
+  if (!room) return;
+
+  console.log(`Resetting room ${roomId}`);
+  room.gameState = 'waiting';
+  room.currentGame = null;
+
+  // Clear all finished states for this room
+  for (const key of finishedPlayers.keys()) {
+    if (key.startsWith(`${roomId}-`)) {
+      finishedPlayers.delete(key);
+    }
+  }
+}
+
+// Update the player-exit endpoint
+app.post('/api/player-exit', async (req, res) => {
+  const { roomId, playerName } = req.body;
+  console.log(`\n=== Player ${playerName} exiting room ${roomId} ===`);
+
   try {
-    console.log(`\n=== Attempting to reset game in room ${roomId} ===`);
-    console.log('Current room state:', {
+    const room = activeRooms.get(roomId);
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    const isHost = room.players[0]?.name === playerName;
+    console.log(`${isHost ? 'Host' : 'Regular'} player ${playerName} is exiting`);
+
+    // Clean up the exiting player
+    cleanupPlayer(roomId, playerName);
+
+    if (isHost) {
+      console.log('Host is exiting, closing room');
+      activeRooms.delete(roomId);
+      await pusher.trigger(`room-${roomId}`, 'room-closed', {
+        reason: 'Host left',
+        timestamp: Date.now()
+      });
+    } else {
+      // If in a game and less than 2 players remain, reset the room
+      if (room.gameState === 'playing' && room.players.length < 2) {
+        console.log('Resetting game due to insufficient players');
+        resetRoom(roomId);
+      }
+
+      // Notify remaining players
+      await pusher.trigger(`room-${roomId}`, 'player-left', {
+        playerName,
+        remainingPlayers: room.players,
+        gameState: room.gameState,
+        timestamp: Date.now()
+      });
+    }
+
+    console.log('=== Player exit processed successfully ===');
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error handling player exit:', error);
+    res.status(500).json({ error: 'Failed to process player exit' });
+  }
+});
+
+// Update the reset-game endpoint
+app.post('/api/reset-game', async (req, res) => {
+  const { roomId } = req.body;
+  console.log(`\n=== Attempting to reset game in room ${roomId} ===`);
+
+  try {
+    const room = activeRooms.get(roomId);
+    if (!room) {
+      console.log(`Room ${roomId} not found`);
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    const status = getPlayerStatus(roomId);
+    console.log('Room state:', {
       playerCount: room.players.length,
       gameState: room.gameState,
       hasCurrentGame: !!room.currentGame
     });
-    
-    // Get detailed player status
-    const status = getPlayerStatus(roomId);
     console.log('Player status:', status);
 
-    // Clean up any finished players that are no longer in the room
-    const currentPlayerNames = new Set(room.players.map(p => p.name));
-    let cleanedUpCount = 0;
-    for (const key of finishedPlayers.keys()) {
-      if (key.startsWith(`${roomId}-`)) {
-        const playerName = key.substring(roomId.length + 1);
-        if (!currentPlayerNames.has(playerName)) {
-          console.log(`Cleaning up finished state for departed player: ${playerName}`);
-          finishedPlayers.delete(key);
-          cleanedUpCount++;
-        }
-      }
-    }
-    console.log(`Cleaned up ${cleanedUpCount} departed players`);
+    // Clean up any players who have left
+    const departed = room.players.filter(p => 
+      !status.finishedPlayers.includes(p.name) && 
+      !status.unfinishedPlayers.includes(p.name)
+    );
+    console.log(`Cleaned up ${departed.length} departed players`);
+    departed.forEach(p => cleanupPlayer(roomId, p.name));
 
-    // Verify all current players have finished
-    const unfinishedPlayers = room.players.filter(player => {
-      const key = `${roomId}-${player.name}`;
-      return !finishedPlayers.has(key);
-    });
-
-    if (unfinishedPlayers.length > 0) {
-      console.log('Cannot reset: These players have not finished:', 
-        unfinishedPlayers.map(p => p.name));
+    // Check if all active players have finished
+    const unfinished = status.unfinishedPlayers.filter(p => 
+      room.players.some(rp => rp.name === p)
+    );
+    
+    if (unfinished.length > 0) {
+      console.log(`Cannot reset: These players have not finished: ${unfinished}`);
       return res.status(400).json({ 
-        error: 'Cannot reset until all active players have finished',
-        unfinishedPlayers: unfinishedPlayers.map(p => p.name)
+        error: 'Not all players have finished',
+        unfinishedPlayers: unfinished
       });
     }
 
-    // Check minimum player count
-    if (room.players.length < 2) {
-      console.log(`Cannot reset: Not enough players (${room.players.length})`);
-      return res.status(400).json({ 
-        error: 'Not enough active players to start new game',
-        currentPlayerCount: room.players.length
-      });
-    }
-
-    // Proceed with reset
     console.log('All checks passed, proceeding with reset');
-    
-    // Clear finished state for all players in this room
-    let clearedCount = 0;
-    for (const key of finishedPlayers.keys()) {
-      if (key.startsWith(`${roomId}-`)) {
-        finishedPlayers.delete(key);
-        clearedCount++;
-      }
-    }
-    console.log(`Cleared finished state for ${clearedCount} players`);
+    resetRoom(roomId);
 
-    // Reset room state
-    room.currentGame = null;
-    room.gameState = 'waiting';
-    
-    // Notify all players
     await pusher.trigger(`room-${roomId}`, 'game-reset', {
       activePlayers: room.players,
       timestamp: Date.now()
     });
-    
-    console.log('=== Game reset successful ===\n');
-    res.json({ 
-      success: true,
-      playerCount: room.players.length,
-      gameState: room.gameState
-    });
+
+    console.log('=== Game reset successful ===');
+    res.json({ success: true });
   } catch (error) {
     console.error('Error resetting game:', error);
     res.status(500).json({ error: 'Failed to reset game' });
