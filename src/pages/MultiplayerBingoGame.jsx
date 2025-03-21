@@ -1048,15 +1048,26 @@ function MultiplayerBingoGame() {
 
   // Render game over screen immediately when isGameOver is true
   if (isGameOver || gameState === 'finished') {
-    // Calculate allPlayersFinished based on the current state
-    const allPlayersFinished = players.every(player => finishedPlayers.includes(player.name));
-    const remainingPlayers = players.length - finishedPlayers.length;
-
+    // Sort players by score (highest first) and break ties alphabetically
+    const rankedPlayers = [...players].sort((a, b) => {
+      const scoreA = playerScores[a.name] || 0;
+      const scoreB = playerScores[b.name] || 0;
+      
+      // Sort by score first (descending)
+      if (scoreB !== scoreA) {
+        return scoreB - scoreA;
+      }
+      
+      // If scores are tied, sort alphabetically by name
+      return a.name.localeCompare(b.name);
+    });
+    
     console.log('Game over state:', {
       allPlayersFinished,
       finishedPlayers,
       players,
-      remainingPlayers
+      remainingPlayers: players.length - finishedPlayers.length,
+      rankedPlayers
     });
     
     return (
@@ -1113,29 +1124,64 @@ function MultiplayerBingoGame() {
             >
               <VStack spacing={4} align="stretch">
                 <Heading size="md" color="white">
-                  Room Leaderboard
+                  Leaderboard
                 </Heading>
-                {players.map((player) => (
-                  <HStack
-                    key={player.name}
-                    justify="space-between"
-                    bg={player.name === playerName ? "rgba(66, 153, 225, 0.3)" : "rgba(255, 255, 255, 0.05)"}
-                    p={3}
-                    borderRadius="md"
-                  >
-                    <Text color="white">
-                      {player.name} {player.name === playerName && "(You)"}
-                    </Text>
-                    <HStack spacing={3}>
-                      <Text color="white">{playerScores[player.name] || 0} matches</Text>
-                      {finishedPlayers.includes(player.name) ? (
-                        <Badge colorScheme="green">Finished</Badge>
-                      ) : (
-                        <Badge colorScheme="yellow">Playing</Badge>
-                      )}
+                {rankedPlayers.map((player, index) => {
+                  const score = playerScores[player.name] || 0;
+                  const isCurrentPlayer = player.name === playerName;
+                  
+                  // Determine rank (handle ties by giving players with the same score the same rank)
+                  let rank = index + 1;
+                  if (index > 0) {
+                    const prevScore = playerScores[rankedPlayers[index - 1].name] || 0;
+                    if (score === prevScore) {
+                      rank = index; // Same rank as previous player
+                    }
+                  }
+                  
+                  // Determine medal for top 3
+                  let medal = null;
+                  if (rank === 1) medal = "🥇";
+                  else if (rank === 2) medal = "🥈";
+                  else if (rank === 3) medal = "🥉";
+                  
+                  return (
+                    <HStack
+                      key={player.name}
+                      justify="space-between"
+                      bg={isCurrentPlayer ? "rgba(66, 153, 225, 0.3)" : "rgba(255, 255, 255, 0.05)"}
+                      p={3}
+                      borderRadius="md"
+                      border={isCurrentPlayer ? "1px solid rgba(66, 153, 225, 0.5)" : "none"}
+                    >
+                      <HStack spacing={2}>
+                        <Box 
+                          w="24px" 
+                          textAlign="center"
+                          fontWeight="bold"
+                          color={
+                            rank === 1 ? "yellow.400" :
+                            rank === 2 ? "gray.300" :
+                            rank === 3 ? "orange.300" : "gray.500"
+                          }
+                        >
+                          {medal || `#${rank}`}
+                        </Box>
+                        <Text color="white" fontWeight={isCurrentPlayer ? "bold" : "normal"}>
+                          {player.name} {isCurrentPlayer && "(You)"}
+                        </Text>
+                      </HStack>
+                      <HStack spacing={3}>
+                        <Text color="white" fontWeight="bold">{score} matches</Text>
+                        {finishedPlayers.includes(player.name) ? (
+                          <Badge colorScheme="green">Finished</Badge>
+                        ) : (
+                          <Badge colorScheme="yellow">Playing</Badge>
+                        )}
+                      </HStack>
                     </HStack>
-                  </HStack>
-                ))}
+                  );
+                })}
               </VStack>
             </Box>
 
@@ -1146,7 +1192,7 @@ function MultiplayerBingoGame() {
                 fontSize="lg"
                 textAlign="center"
               >
-                Waiting for {remainingPlayers} player{remainingPlayers > 1 ? 's' : ''} to finish...
+                Waiting for {players.length - finishedPlayers.length} player{players.length - finishedPlayers.length > 1 ? 's' : ''} to finish...
               </Text>
             )}
 
