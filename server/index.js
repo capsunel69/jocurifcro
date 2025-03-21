@@ -428,14 +428,6 @@ app.post('/api/cell-select', async (req, res) => {
 
 app.post('/api/use-wildcard', async (req, res) => {
   const { roomId, playerName, currentPlayerId, categories } = req.body;
-  
-  console.log('Wildcard request received:', {
-    roomId,
-    playerName,
-    currentPlayerId,
-    categoriesCount: categories?.length
-  });
-
   const room = activeRooms.get(roomId);
   
   if (!room || !room.currentGame) {
@@ -443,64 +435,91 @@ app.post('/api/use-wildcard', async (req, res) => {
   }
 
   try {
+    // Get player state
+    const playerState = room.currentGame.playerStates.get(playerName) || {
+      selectedCells: [],
+      validSelections: [],
+      usedPlayers: [],
+      hasWildcard: true
+    };
+    
+    // Check if player still has wildcard
+    if (!playerState.hasWildcard) {
+      return res.status(400).json({ error: 'Wildcard already used' });
+    }
+    
+    // Find current player in card
     const currentPlayer = room.currentGame.card.gameData.players.find(p => p.id === currentPlayerId);
     
     if (!currentPlayer) {
       return res.status(400).json({ error: 'Current player not found' });
     }
-
-    // Log current player's achievements for debugging
-    console.log(`Player ${playerName} achievements:`, currentPlayer.v);
-
-    // Get current valid selections
-    const playerState = room.currentGame.playerStates.get(playerName) || { validSelections: [] };
-    console.log(`Current valid selections for ${playerName}:`, playerState.validSelections);
-
-    // Find new matches with more detailed logging
-    const matchIndices = categories.reduce((acc, category, index) => {
-      // Skip if already matched
-      if (!playerState.validSelections.includes(index)) {
-        // Check if ALL requirements are matched
-        const requirements = category.originalData.map(r => r.id);
-        console.log(`Checking category ${index} with requirements:`, requirements);
+    
+    // Find matching categories (may be empty if no matches)
+    const matchIndices = [];
+    
+    for (let i = 0; i < categories.length; i++) {
+      // Skip already selected categories
+      if (playerState.selectedCells.includes(i)) {
+        continue;
+      }
+      
+      const category = categories[i].originalData;
+      // Check if current player has achievements that match all requirements
+      const isMatch = category.every(requirement => 
+        currentPlayer.v && currentPlayer.v.includes(requirement.id)
+      );
+      
+      if (isMatch) {
+        matchIndices.push(i);
         
-        const matchesAllRequirements = category.originalData.every(requirement => {
-          const isMatched = currentPlayer.v.includes(requirement.id);
-          console.log(`  Requirement ${requirement.id}: ${isMatched ? 'matched' : 'not matched'}`);
-          return isMatched;
-        });
+        // Add to selected cells
+        if (!playerState.selectedCells.includes(i)) {
+          playerState.selectedCells.push(i);
+        }
         
-        if (matchesAllRequirements) {
-          console.log(`New match found: category ${index}`);
-          acc.push(index);
+        // Add to valid selections
+        if (!playerState.validSelections.includes(i)) {
+          playerState.validSelections.push(i);
         }
       }
-      return acc;
-    }, []);
-
-    console.log(`Found ${matchIndices.length} new matches for ${playerName}`);
-
-    if (matchIndices.length > 0) {
-      // Update player's valid selections
-      playerState.validSelections = [...playerState.validSelections, ...matchIndices];
-      room.currentGame.playerStates.set(playerName, playerState);
     }
-
-    // Send wildcard matches to all players with total valid selections
+    
+    // Mark wildcard as used
+    playerState.hasWildcard = false;
+    
+    // Update player state
+    room.currentGame.playerStates.set(playerName, playerState);
+    
+    // Notify all players
     await pusher.trigger(`room-${roomId}`, 'wildcard-used', {
       playerName,
       wildcardMatches: matchIndices,
-      previousValidSelections: playerState.validSelections.slice(0, -matchIndices.length || 0),
       totalValidSelections: playerState.validSelections.length
     });
-
+    
+    // Check if all 16 categories have been selected
+    if (playerState.selectedCells.length >= 16) {
+      console.log(`GAME OVER: ${playerName} has selected all 16 categories via wildcard`);
+      
+      // Explicitly trigger game over for this player
+      await pusher.trigger(`room-${roomId}-${playerName}`, 'game-over', {
+        reason: 'all-categories-selected-via-wildcard'
+      });
+      
+      return res.status(200).json({ 
+        success: true,
+        gameOver: true,
+        wildcardMatches: matchIndices
+      });
+    }
+    
     res.json({ 
-      success: true,
+      success: true, 
       wildcardMatches: matchIndices
     });
-
   } catch (error) {
-    console.error('Error processing wildcard:', error);
+    console.error('Error handling wildcard use:', error);
     res.status(500).json({ error: 'Failed to process wildcard' });
   }
 });

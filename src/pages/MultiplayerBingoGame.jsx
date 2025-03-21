@@ -154,10 +154,43 @@ function MultiplayerBingoGame() {
 
         if (data.playerName === playerName) {
           if (data.wildcardMatches && data.wildcardMatches.length > 0) {
-            wildcardSound.play();
-            setWildcardMatches(data.wildcardMatches);
-            setValidSelections(prev => [...prev, ...data.wildcardMatches]);
-            setHasWildcard(false);
+            // Filter out categories that have already been selected
+            const newMatches = data.wildcardMatches.filter(
+              matchId => !selectedCells.includes(matchId)
+            );
+            
+            if (newMatches.length > 0) {
+              wildcardSound.play();
+              
+              // Update wildcard matches (for visualization)
+              setWildcardMatches(newMatches);
+              
+              // Add to valid selections for scoring
+              setValidSelections(prev => [...prev, ...newMatches]);
+              
+              // IMPORTANT: Also add to selectedCells for the game end condition
+              setSelectedCells(prev => {
+                const updatedCells = [...prev, ...newMatches];
+                
+                // Check if all 16 categories have been selected - trigger game end
+                if (updatedCells.length >= 16) {
+                  console.log('Game over triggered by wildcard completing all 16 categories');
+                  setIsGameOver(true);
+                  setGameState('finished');
+                  handleGameOver();
+                }
+                
+                return updatedCells;
+              });
+            } else {
+              toast({
+                title: "No New Matches",
+                description: "All matching categories have already been selected.",
+                status: "info",
+                duration: 3000,
+                isClosable: true,
+              });
+            }
           } else {
             toast({
               title: "No Matches Found",
@@ -167,6 +200,8 @@ function MultiplayerBingoGame() {
               isClosable: true,
             });
           }
+          
+          setHasWildcard(false);
           setIsInteractionDisabled(false);
         }
 
