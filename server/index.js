@@ -886,7 +886,7 @@ function cleanupRoom(roomId) {
   }
 }
 
-// Update the exit-room handler to be more thorough
+// Update the exit-room handler to ensure proper player removal and notifications
 app.post('/api/exit-room', async (req, res) => {
   const { roomId, playerName } = req.body;
   const room = activeRooms.get(roomId);
@@ -899,6 +899,41 @@ app.post('/api/exit-room', async (req, res) => {
     console.log(`\n=== Player ${playerName} exiting room ${roomId} ===`);
     const isHost = room.players.find(p => p.name === playerName)?.isHost;
     
+    // Remove player from room
+    room.players = room.players.filter(p => p.name !== playerName);
+    
+    // Clear all state for this player
+    if (room.currentGame?.playerStates) {
+      room.currentGame.playerStates.delete(playerName);
+    }
+    
+    const finishedKey = `${roomId}-${playerName}`;
+    if (finishedPlayers.has(finishedKey)) {
+      console.log(`Clearing finished state for ${playerName}`);
+      finishedPlayers.delete(finishedKey);
+    }
+    
+    // Notify other players
+    await pusher.trigger(`room-${roomId}`, 'player-left', {
+      playerName,
+      remainingPlayers: room.players,
+      gameState: room.gameState,
+      timestamp: Date.now()
+    });
+
+    // Check if we need to reset the game
+    if (room.gameState !== 'waiting' && room.players.length < 2) {
+      console.log('Resetting game due to insufficient players');
+      room.gameState = 'waiting';
+      room.currentGame = null;
+      await pusher.trigger(`room-${roomId}`, 'game-reset', {
+        reason: 'Not enough players',
+        activePlayers: room.players,
+        timestamp: Date.now()
+      });
+    }
+
+    // If host exits, close the room
     if (isHost) {
       console.log(`Host ${playerName} is exiting, closing room`);
       cleanupRoom(roomId);
@@ -906,41 +941,6 @@ app.post('/api/exit-room', async (req, res) => {
         message: 'Host has left the room',
         timestamp: Date.now()
       });
-    } else {
-      console.log(`Regular player ${playerName} is exiting`);
-      // Remove player from room
-      room.players = room.players.filter(p => p.name !== playerName);
-      
-      // Clear all state for this player
-      if (room.currentGame?.playerStates) {
-        room.currentGame.playerStates.delete(playerName);
-      }
-      
-      const finishedKey = `${roomId}-${playerName}`;
-      if (finishedPlayers.has(finishedKey)) {
-        console.log(`Clearing finished state for ${playerName}`);
-        finishedPlayers.delete(finishedKey);
-      }
-      
-      // Notify other players
-      await pusher.trigger(`room-${roomId}`, 'player-left', {
-        playerName,
-        remainingPlayers: room.players,
-        gameState: room.gameState,
-        timestamp: Date.now()
-      });
-
-      // Check if we need to reset the game
-      if (room.gameState !== 'waiting' && room.players.length < 2) {
-        console.log('Resetting game due to insufficient players');
-        room.gameState = 'waiting';
-        room.currentGame = null;
-        await pusher.trigger(`room-${roomId}`, 'game-reset', {
-          reason: 'Not enough players',
-          activePlayers: room.players,
-          timestamp: Date.now()
-        });
-      }
     }
 
     console.log('=== Player exit processed successfully ===\n');
