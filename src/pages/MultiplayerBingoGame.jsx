@@ -53,6 +53,27 @@ function MultiplayerBingoGame() {
   const [inputPlayerName, setInputPlayerName] = useState('')
   const [inputRoomId, setInputRoomId] = useState('')
 
+  // Replace the sound initialization and create a function to reliably play sounds
+  const correctSoundSrc = '/sfx/correct_answer.mp3'
+  const wrongSoundSrc = '/sfx/wrong_answer.mp3'
+  const wildcardSoundSrc = '/sfx/wildcard.mp3'
+
+  // Create a sound player function that ensures sounds play every time
+  const playSound = (soundSrc) => {
+    const sound = new Audio(soundSrc);
+    sound.volume = 0.15;
+    
+    // Create a promise that resolves when the sound can play
+    const playPromise = sound.play();
+    
+    // If the browser doesn't support promises for audio playback
+    if (playPromise !== undefined) {
+      playPromise.catch(error => {
+        console.log("Sound play error (ignoring):", error);
+      });
+    }
+  }
+
   const correctSound = new Audio('/sfx/correct_answer.mp3')
   correctSound.volume = 0.15
   
@@ -107,7 +128,7 @@ function MultiplayerBingoGame() {
         // Only handle the rest if it's for the current player
         if (data.playerName === playerName) {
           // Always show as if the selection was successful
-          correctSound.play();
+          playSound(correctSoundSrc);
           
           // Update selected cells
           const updatedSelectedCells = data.playerState.selectedCells || [];
@@ -160,7 +181,7 @@ function MultiplayerBingoGame() {
             );
             
             if (newMatches.length > 0) {
-              wildcardSound.play();
+              playSound(wildcardSoundSrc);
               
               // Update wildcard matches (for visualization)
               setWildcardMatches(newMatches);
