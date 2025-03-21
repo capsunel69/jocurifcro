@@ -303,12 +303,14 @@ function MultiplayerBingoGame() {
           status: "info",
         });
         
-        // Check if we need to update allPlayersFinished
-        if (data.remainingPlayers.length > 0) {
-          const allFinished = data.remainingPlayers.every(player => 
-            finishedPlayers.includes(player.name)
-          );
-          setAllPlayersFinished(allFinished);
+        // After a player leaves, recalculate if all players are finished
+        const remaining = data.remainingPlayers.filter(p => 
+          !finishedPlayers.includes(p.name) || p.name === data.playerName
+        ).length;
+        
+        // Update allPlayersFinished based on the new state
+        if (remaining === 0) {
+          setAllPlayersFinished(true);
         }
       });
 
@@ -782,7 +784,7 @@ function MultiplayerBingoGame() {
         });
       }
       // Redirect to home page
-      window.location.href = '/';
+      window.location.href = '/multiplayer-bingo';
     } catch (error) {
       console.error('Error exiting room:', error);
       // Still redirect even if the API call fails
@@ -1311,7 +1313,15 @@ function MultiplayerBingoGame() {
                 fontSize="lg"
                 textAlign="center"
               >
-                Waiting for {players.length - finishedPlayers.length} player{players.length - finishedPlayers.length > 1 ? 's' : ''} to finish...
+                {(() => {
+                  // Get the count of active players who haven't finished
+                  const remainingCount = players.filter(p => !finishedPlayers.includes(p.name)).length;
+                  
+                  // Only show message if there are remaining players
+                  if (remainingCount <= 0) return null;
+                  
+                  return `Waiting for ${remainingCount} player${remainingCount > 1 ? 's' : ''} to finish...`;
+                })()}
               </Text>
             )}
 
