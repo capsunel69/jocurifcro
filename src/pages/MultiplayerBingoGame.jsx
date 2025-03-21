@@ -263,11 +263,60 @@ function MultiplayerBingoGame() {
         setAllPlayersFinished(false)
       })
 
+      // Add/update player-left event handler
+      channel.bind('player-left', (data) => {
+        console.log('Player left event received:', data);
+        
+        // Update players list with remaining players
+        if (data.remainingPlayers) {
+          setPlayers(data.remainingPlayers);
+        }
+        
+        // Remove from finished players if they were finished
+        setFinishedPlayers(prev => prev.filter(p => p !== data.playerName));
+        
+        // Update player scores
+        setPlayerScores(prev => {
+          const { [data.playerName]: removed, ...rest } = prev;
+          return rest;
+        });
+
+        toast({
+          title: "Player Left",
+          description: `${data.playerName} has left the game`,
+          status: "info",
+          duration: 3000,
+        });
+
+        // If game is in progress and not enough players, reset game
+        if (data.remainingPlayers.length < 2 && gameState === 'playing') {
+          setGameState('waiting');
+          setIsGameOver(false);
+          toast({
+            title: "Game Ended",
+            description: "Not enough players to continue",
+            status: "warning",
+          });
+        }
+      });
+
+      // Add/update room-closed event handler
+      channel.bind('room-closed', (data) => {
+        toast({
+          title: "Room Closed",
+          description: data.message,
+          status: "error",
+          duration: 5000,
+        });
+        // Redirect to home
+        window.location.href = '/';
+      });
+
       return () => {
         pusher.unsubscribe(`room-${roomId}`)
       }
     }
-  }, [roomId, playerName, maxAvailablePlayers])
+  }, [roomId, playerName, maxAvailablePlayers, gameState])
 
   useEffect(() => {
     // Check if all players have finished
@@ -651,48 +700,21 @@ function MultiplayerBingoGame() {
     };
   }, [roomId, playerName]);
 
-  // Add new effect to handle room events
-  useEffect(() => {
-    if (roomId) {
-      const channel = pusher.subscribe(`room-${roomId}`);
-      
-      channel.bind('room-closed', (data) => {
-        toast({
-          title: "Room Closed",
-          description: data.message,
-          status: "error",
-          duration: 5000,
-        });
-        // Redirect to home
-        window.location.href = '/';
-      });
-
-      channel.bind('player-left', (data) => {
-        setPlayers(data.remainingPlayers);
-        toast({
-          title: "Player Left",
-          description: `${data.playerName} has left the game`,
-          status: "info",
-        });
-      });
-
-      return () => {
-        pusher.unsubscribe(`room-${roomId}`);
-      };
-    }
-  }, [roomId]);
-
   // Update exit to menu handler
   const handleExitToMenu = async () => {
     try {
-      await fetch(`${API_BASE_URL}/api/exit-room`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomId, playerName })
-      });
+      if (roomId && playerName) {
+        await fetch(`${API_BASE_URL}/api/exit-room`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomId, playerName })
+        });
+      }
+      // Redirect to home page
       window.location.href = '/';
     } catch (error) {
       console.error('Error exiting room:', error);
+      // Still redirect even if the API call fails
       window.location.href = '/';
     }
   };
