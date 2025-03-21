@@ -96,16 +96,25 @@ app.post('/api/join-room', async (req, res) => {
     return res.status(400).json({ error: 'Game already in progress' });
   }
   
+  // Check if player name is already taken in this room
+  if (room.players.some(p => p.name === playerName)) {
+    return res.status(400).json({ error: 'Player name already taken' });
+  }
+  
   // Add player to room
   room.players.push({ name: playerName, isHost: false });
   
   // Notify other players
   await pusher.trigger(`room-${roomId}`, 'player-joined', {
     players: room.players,
-    player: playerName
+    playerName
   });
   
-  res.json({ success: true });
+  // Send current room state to joining player
+  res.json({ 
+    success: true,
+    currentPlayers: room.players // Send current players list
+  });
 });
 
 app.post('/api/start-game', async (req, res) => {
@@ -114,6 +123,18 @@ app.post('/api/start-game', async (req, res) => {
   
   if (!room) {
     return res.status(404).json({ error: 'Room not found' });
+  }
+
+  // Verify all players in the room still exist
+  const activePlayers = room.players.filter(p => {
+    const finishedKey = `${roomId}-${p.name}`;
+    return !finishedPlayers.has(finishedKey);
+  });
+
+  if (activePlayers.length < 2 || activePlayers.length > 5) {
+    return res.status(400).json({ 
+      error: 'Game requires 2-5 players to start' 
+    });
   }
 
   // Check if all players have finished the current game
@@ -505,6 +526,72 @@ app.post('/api/get-player-state', async (req, res) => {
   } catch (error) {
     console.error('Error getting player state:', error);
     res.status(500).json({ error: 'Failed to get player state' });
+  }
+});
+
+// Add new helper function to clean up rooms
+function cleanupRoom(roomId) {
+  const room = activeRooms.get(roomId);
+  if (room) {
+    // Clear all finished players for this room
+    for (const key of finishedPlayers.keys()) {
+      if (key.startsWith(`${roomId}-`)) {
+        finishedPlayers.delete(key);
+      }
+    }
+    activeRooms.delete(roomId);
+  }
+}
+
+// Add new endpoint to handle player exit
+app.post('/api/exit-room', async (req, res) => {
+  const { roomId, playerName } = req.body;
+  const room = activeRooms.get(roomId);
+  
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  try {
+    const isHost = room.players.find(p => p.name === playerName)?.isHost;
+    
+    if (isHost) {
+      // If host exits, close the room and notify all players
+      cleanupRoom(roomId);
+      await pusher.trigger(`room-${roomId}`, 'room-closed', {
+        message: 'Host has left the room'
+      });
+    } else {
+      // Remove player from room and clear their game state
+      room.players = room.players.filter(p => p.name !== playerName);
+      if (room.currentGame?.playerStates) {
+        room.currentGame.playerStates.delete(playerName);
+      }
+      
+      // Clear finished state for this player
+      const finishedKey = `${roomId}-${playerName}`;
+      finishedPlayers.delete(finishedKey);
+      
+      // Notify other players
+      await pusher.trigger(`room-${roomId}`, 'player-left', {
+        playerName,
+        remainingPlayers: room.players
+      });
+
+      // If not enough players remain, end the game
+      if (room.players.length < 2) {
+        room.gameState = 'waiting';
+        room.currentGame = null;
+        await pusher.trigger(`room-${roomId}`, 'game-reset', {
+          reason: 'Not enough players'
+        });
+      }
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error handling player exit:', error);
+    res.status(500).json({ error: 'Failed to process player exit' });
   }
 });
 

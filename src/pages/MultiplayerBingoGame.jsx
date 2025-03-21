@@ -49,6 +49,10 @@ function MultiplayerBingoGame() {
   const [allPlayersFinished, setAllPlayersFinished] = useState(false)
   const [hasFinished, setHasFinished] = useState(false)
 
+  // Separate temporary input state from active player state
+  const [inputPlayerName, setInputPlayerName] = useState('')
+  const [inputRoomId, setInputRoomId] = useState('')
+
   const correctSound = new Audio('/sfx/correct_answer.mp3')
   correctSound.volume = 0.15
   
@@ -167,20 +171,12 @@ function MultiplayerBingoGame() {
           totalValidSelections: data.totalValidSelections
         });
 
-        // Use server's total for the score
-        if (data.totalValidSelections !== undefined) {
-          setPlayerScores(prev => ({
-            ...prev,
-            [data.playerName]: data.totalValidSelections
-          }));
-          console.log(`Updated score for ${data.playerName} to ${data.totalValidSelections}`);
-        }
-
         if (data.playerName === playerName) {
           if (data.wildcardMatches && data.wildcardMatches.length > 0) {
             wildcardSound.play();
             setWildcardMatches(data.wildcardMatches);
             setValidSelections(prev => [...prev, ...data.wildcardMatches]);
+            setHasWildcard(false);
           } else {
             toast({
               title: "No Matches Found",
@@ -190,9 +186,15 @@ function MultiplayerBingoGame() {
               isClosable: true,
             });
           }
-          
-          setHasWildcard(false);
           setIsInteractionDisabled(false);
+        }
+
+        // Update scores for all players
+        if (data.totalValidSelections !== undefined) {
+          setPlayerScores(prev => ({
+            ...prev,
+            [data.playerName]: data.totalValidSelections
+          }));
         }
       })
 
@@ -376,24 +378,8 @@ function MultiplayerBingoGame() {
         throw new Error(data.error || 'Failed to use wildcard')
       }
       
-      // Check if there are any matches
-      if (data.wildcardMatches && data.wildcardMatches.length === 0) {
-        console.log('No wildcard matches found')
-        setIsInteractionDisabled(false)
-        toast({
-          title: "No Matches Found",
-          description: "There are no categories that match the current player. Your wildcard is still available!",
-          status: "info",
-          duration: 3000,
-          isClosable: true,
-        })
-        return
-      }
-      
-      console.log('Wildcard used successfully:', data.wildcardMatches)
-      wildcardSound.play()
-      setWildcardMatches(data.wildcardMatches || [])
-      setHasWildcard(false)
+      // Let the server-side event handler manage the wildcard state
+      // Don't update state here as it will be handled by the 'wildcard-used' event
       
     } catch (error) {
       console.error('Error using wildcard:', error)
@@ -402,8 +388,6 @@ function MultiplayerBingoGame() {
         description: error.message,
         status: "error",
       })
-    } finally {
-      console.log('Resetting interaction state')
       setIsInteractionDisabled(false)
     }
   }
@@ -440,7 +424,7 @@ function MultiplayerBingoGame() {
   }
 
   const handleCreateRoom = async () => {
-    if (!playerName) {
+    if (!inputPlayerName) {
       toast({
         title: "Error",
         description: "Please enter your name",
@@ -453,14 +437,15 @@ function MultiplayerBingoGame() {
       const response = await fetch(`${API_BASE_URL}/api/create-room`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerName })
+        body: JSON.stringify({ playerName: inputPlayerName })
       });
 
       if (!response.ok) throw new Error('Failed to create room');
       
       const data = await response.json();
       setRoomId(data.roomId);
-      setPlayers([{ name: playerName, isHost: true }]);
+      setPlayerName(inputPlayerName);
+      setPlayers([{ name: inputPlayerName, isHost: true }]);
       setIsHost(true);
       setGameState('waiting');
       
@@ -480,7 +465,7 @@ function MultiplayerBingoGame() {
   };
 
   const handleJoinRoom = async () => {
-    if (!playerName || !roomId) {
+    if (!inputPlayerName || !inputRoomId) {
       toast({
         title: "Error",
         description: "Please enter your name and room ID",
@@ -493,17 +478,33 @@ function MultiplayerBingoGame() {
       const response = await fetch(`${API_BASE_URL}/api/join-room`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerName, roomId })
+        body: JSON.stringify({ 
+          playerName: inputPlayerName, 
+          roomId: inputRoomId 
+        })
       });
 
-      if (!response.ok) throw new Error('Failed to join room');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to join room');
+      }
       
+      const data = await response.json();
+      setPlayerName(inputPlayerName);
+      setRoomId(inputRoomId);
+      setPlayers(data.currentPlayers); // Set the current players list
       setGameState('waiting');
+      
+      toast({
+        title: "Joined Room",
+        description: `Successfully joined room ${inputRoomId}`,
+        status: "success",
+      });
     } catch (error) {
       console.error('Error joining room:', error);
       toast({
         title: "Error",
-        description: "Failed to join room",
+        description: error.message || "Failed to join room",
         status: "error",
       });
     }
@@ -597,19 +598,18 @@ function MultiplayerBingoGame() {
 
   const handlePlayAgain = async () => {
     try {
-      // Reset game state
-      setGameState('waiting')
-      setIsGameOver(false)
-      setValidSelections([])
-      setSelectedCells([])
-      setUsedPlayers([])
-      setHasWildcard(true)
-      setWildcardMatches([])
-      setPlayerScores({})
-      setFinishedPlayers([])
-      setAllPlayersFinished(false)
+      setHasFinished(false); // Reset finished state
+      setGameState('waiting');
+      setIsGameOver(false);
+      setValidSelections([]);
+      setSelectedCells([]);
+      setUsedPlayers([]);
+      setHasWildcard(true);
+      setWildcardMatches([]);
+      setPlayerScores({});
+      setFinishedPlayers([]);
+      setAllPlayersFinished(false);
       
-      // Notify other players that host started new game
       await fetch(`${API_BASE_URL}/api/reset-game`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -617,16 +617,88 @@ function MultiplayerBingoGame() {
           roomId,
           playerName 
         })
-      })
+      });
     } catch (error) {
-      console.error('Error resetting game:', error)
+      console.error('Error resetting game:', error);
       toast({
         title: "Error",
         description: "Failed to start new game",
         status: "error",
-      })
+      });
     }
-  }
+  };
+
+  // Add new effect to handle page unload/exit
+  useEffect(() => {
+    const handleBeforeUnload = async () => {
+      if (roomId && playerName) {
+        try {
+          await fetch(`${API_BASE_URL}/api/exit-room`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ roomId, playerName })
+          });
+        } catch (error) {
+          console.error('Error exiting room:', error);
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      handleBeforeUnload();
+    };
+  }, [roomId, playerName]);
+
+  // Add new effect to handle room events
+  useEffect(() => {
+    if (roomId) {
+      const channel = pusher.subscribe(`room-${roomId}`);
+      
+      channel.bind('room-closed', (data) => {
+        toast({
+          title: "Room Closed",
+          description: data.message,
+          status: "error",
+          duration: 5000,
+        });
+        // Redirect to home
+        window.location.href = '/';
+      });
+
+      channel.bind('player-left', (data) => {
+        setPlayers(data.remainingPlayers);
+        toast({
+          title: "Player Left",
+          description: `${data.playerName} has left the game`,
+          status: "info",
+        });
+      });
+
+      return () => {
+        pusher.unsubscribe(`room-${roomId}`);
+      };
+    }
+  }, [roomId]);
+
+  // Update exit to menu handler
+  const handleExitToMenu = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/api/exit-room`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId, playerName })
+      });
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Error exiting room:', error);
+      window.location.href = '/';
+    }
+  };
+
+  // Update game mode selection component to check player count
+  const canStartGame = players.length >= 2 && players.length <= 5;
 
   if (gameState === 'init') {
     return (
@@ -683,8 +755,8 @@ function MultiplayerBingoGame() {
                   </Text>
                   <Input
                     placeholder="Enter your name"
-                    value={playerName}
-                    onChange={(e) => setPlayerName(e.target.value)}
+                    value={inputPlayerName}
+                    onChange={(e) => setInputPlayerName(e.target.value)}
                     size="lg"
                     bg="rgba(255, 255, 255, 0.06)"
                     color="white"
@@ -744,8 +816,8 @@ function MultiplayerBingoGame() {
                     </Text>
                     <Input
                       placeholder="Enter room code"
-                      value={roomId || ''}
-                      onChange={(e) => setRoomId(e.target.value)}
+                      value={inputRoomId}
+                      onChange={(e) => setInputRoomId(e.target.value.toUpperCase())}
                       size="lg"
                       bg="rgba(255, 255, 255, 0.06)"
                       color="white"
@@ -854,7 +926,11 @@ function MultiplayerBingoGame() {
                 
                 {players.find(p => p.name === playerName)?.isHost && (
                   <Box w="full" pt={4}>
-                    <MpGameModeSelect onModeSelect={handleModeSelect} />
+                    <MpGameModeSelect 
+                      onModeSelect={handleModeSelect} 
+                      isDisabled={!canStartGame}
+                      playerCount={players.length}
+                    />
                   </Box>
                 )}
               </VStack>
@@ -1088,7 +1164,7 @@ function MultiplayerBingoGame() {
               <Button
                 variant="outline"
                 size="lg"
-                onClick={() => window.location.href = '/'}
+                onClick={handleExitToMenu}
                 borderColor="rgba(255,255,255,0.2)"
                 color="white"
                 w="full"

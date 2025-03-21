@@ -14,7 +14,7 @@ const Header = () => {
     
     const menuItems = [
         { href: '/bingo', icon: FaDice, text: 'Bingo' },
-        { href: '/multiplayer-bingo', icon: FaNetworkWired, text: 'Multiplayer Bingo', disabled: true },
+        { href: '/multiplayer-bingo', icon: FaNetworkWired, text: 'Multiplayer Bingo' },
         { href: '/ghiceste-jucatorul', icon: FaUserSecret, text: 'Ghiceste Jucatorul' },
         { href: '/subscribe', icon: FaEnvelope, text: 'Aboneaza-te' }
     ]

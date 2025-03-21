@@ -1,7 +1,7 @@
 import { VStack, Button, Text } from '@chakra-ui/react';
 import { FaClock, FaInfinity } from 'react-icons/fa';
 
-const mpGameModeSelect = ({ onModeSelect }) => {
+const mpGameModeSelect = ({ onModeSelect, isDisabled, playerCount }) => {
   const handleModeSelect = (isTimed) => {
     // Small delay to ensure state updates are processed
     setTimeout(() => {
@@ -12,7 +12,9 @@ const mpGameModeSelect = ({ onModeSelect }) => {
   return (
     <VStack spacing={4} p={2} borderRadius="lg">
       <Text fontSize="xl" fontFamily="'Russo One', sans-serif">
-        Alege modul de joc
+        {isDisabled 
+          ? `Waiting for players (${playerCount}/2-5)...`
+          : 'Choose Game Mode'}
       </Text>
       <VStack
         direction={['column', 'row']}
@@ -27,6 +29,7 @@ const mpGameModeSelect = ({ onModeSelect }) => {
           size="lg"
           onClick={() => handleModeSelect(false)}
           w={['full', '50%']}
+          isDisabled={isDisabled}
         >
           Classic Mode
         </Button>
@@ -36,6 +39,7 @@ const mpGameModeSelect = ({ onModeSelect }) => {
           size="lg"
           onClick={() => handleModeSelect(true)}
           w={['full', '50%']}
+          isDisabled={isDisabled}
         >
           Timed Mode (10 sec)
         </Button>
