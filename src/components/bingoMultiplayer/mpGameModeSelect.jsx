@@ -1,11 +1,11 @@
 import { VStack, Button, Text } from '@chakra-ui/react';
-import { FaClock, FaInfinity } from 'react-icons/fa';
+import { FaClock, FaPlay } from 'react-icons/fa';
 
 const mpGameModeSelect = ({ onModeSelect, isDisabled, playerCount }) => {
-  const handleModeSelect = (isTimed) => {
-    // Small delay to ensure state updates are processed
+  const handleStartGame = () => {
+    // Always use timed mode (true)
     setTimeout(() => {
-      onModeSelect(isTimed);
+      onModeSelect(true);
     }, 0);
   };
 
@@ -14,36 +14,26 @@ const mpGameModeSelect = ({ onModeSelect, isDisabled, playerCount }) => {
       <Text fontSize="xl" fontFamily="'Russo One', sans-serif">
         {isDisabled 
           ? `Waiting for players (${playerCount}/2-5)...`
-          : 'Choose Game Mode'}
+          : 'Ready to play?'}
       </Text>
-      <VStack
-        direction={['column', 'row']}
-        spacing={4}
+      <Button
+        leftIcon={<FaPlay />}
+        colorScheme="teal"
+        size="lg"
+        onClick={handleStartGame}
         w="full"
-        display="flex"
-        flexDirection={['column', 'row']}
+        isDisabled={isDisabled}
+        bg="linear-gradient(135deg, #3182ce 0%, #2c5282 100%)"
+        _hover={{
+          transform: !isDisabled ? 'translateY(-2px)' : 'none',
+          boxShadow: !isDisabled ? '0 6px 12px rgba(49, 130, 206, 0.4)' : 'none'
+        }}
       >
-        <Button
-          leftIcon={<FaInfinity />}
-          colorScheme="teal"
-          size="lg"
-          onClick={() => handleModeSelect(false)}
-          w={['full', '50%']}
-          isDisabled={isDisabled}
-        >
-          Classic Mode
-        </Button>
-        <Button
-          leftIcon={<FaClock />}
-          colorScheme="purple"
-          size="lg"
-          onClick={() => handleModeSelect(true)}
-          w={['full', '50%']}
-          isDisabled={isDisabled}
-        >
-          Timed Mode (10 sec)
-        </Button>
-      </VStack>
+        Start Game
+      </Button>
+      <Text fontSize="sm" color="gray.300" textAlign="center">
+        Players will have 10 seconds per turn
+      </Text>
     </VStack>
   );
 };

@@ -603,7 +603,7 @@ app.post('/api/exit-room', async (req, res) => {
         remainingPlayers: room.players
       });
 
-      // If not enough players remain, end the game
+      // Only end the game if fewer than 2 players remain
       if (room.players.length < 2) {
         room.gameState = 'waiting';
         room.currentGame = null;
@@ -617,6 +617,84 @@ app.post('/api/exit-room', async (req, res) => {
   } catch (error) {
     console.error('Error handling player exit:', error);
     res.status(500).json({ error: 'Failed to process player exit' });
+  }
+});
+
+app.post('/api/skip-player', async (req, res) => {
+  const { roomId, playerName } = req.body;
+  const room = activeRooms.get(roomId);
+  
+  if (!room || !room.currentGame) {
+    return res.status(404).json({ error: 'Game not found' });
+  }
+
+  try {
+    // Get current player state for this room
+    const playerState = room.currentGame.playerStates.get(playerName) || {
+      selectedCells: [],
+      validSelections: [],
+      usedPlayers: [],
+      hasWildcard: true
+    };
+
+    // Get the current player ID specifically for this user
+    const currentPlayerId = playerState.currentPlayer?.id || room.currentGame.currentPlayer?.id;
+    
+    if (currentPlayerId) {
+      // Add the current player to used players list first (only for this player)
+      playerState.usedPlayers = [...playerState.usedPlayers, currentPlayerId];
+    }
+
+    // Choose next player who is not in usedPlayers array (for this specific player)
+    const availablePlayers = room.currentGame.card.gameData.players.filter(
+      p => !playerState.usedPlayers.includes(p.id)
+    );
+
+    if (availablePlayers.length === 0) {
+      // Game over if no more players (only for this player)
+      console.log(`Game over triggered by skip for ${playerName} (no more available players)`);
+      
+      // Don't trigger game-over for everyone, only for this player
+      await pusher.trigger(`room-${roomId}-${playerName}`, 'game-over', {});
+      return res.status(200).json({ gameOver: true });
+    }
+
+    // Select random next player (only for this player)
+    const nextPlayer = availablePlayers[Math.floor(Math.random() * availablePlayers.length)];
+    
+    // Update state (we've already added the current player to usedPlayers above)
+    // Don't update room.currentGame.currentPlayer as that would affect all players
+    playerState.currentPlayer = nextPlayer; // Store current player in player-specific state
+    room.currentGame.playerStates.set(playerName, playerState);
+
+    console.log(`Player ${playerName} skipped. Used players: ${playerState.usedPlayers.length}/${room.currentGame.maxAvailablePlayers}`);
+    
+    // Check if we've reached the max available players limit
+    if (playerState.usedPlayers.length >= room.currentGame.maxAvailablePlayers) {
+      console.log(`Game over triggered by skip for ${playerName} (reached max available players)`);
+      
+      // Don't trigger game-over for everyone, only for this player
+      await pusher.trigger(`room-${roomId}-${playerName}`, 'game-over', {});
+      return res.status(200).json({ gameOver: true });
+    }
+
+    // Notify ONLY the player who skipped
+    await pusher.trigger(`room-${roomId}`, 'player-skipped', {
+      playerName, // Only this player should react to this event
+      skippedPlayerId: currentPlayerId,
+      playerState: {
+        selectedCells: playerState.selectedCells,
+        validSelections: playerState.validSelections,
+        usedPlayers: playerState.usedPlayers,
+        currentPlayer: nextPlayer, // Send the next player to use
+        lastUsedPlayer: currentPlayerId
+      }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error skipping player:', error);
+    res.status(500).json({ error: 'Failed to skip player' });
   }
 });
 

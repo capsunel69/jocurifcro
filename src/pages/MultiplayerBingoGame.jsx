@@ -62,6 +62,8 @@ function MultiplayerBingoGame() {
   const wildcardSound = new Audio('/sfx/wildcard.mp3')
   wildcardSound.volume = 0.15
 
+  const [isTimerActive, setIsTimerActive] = useState(false)
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const rid = params.get('roomId')
@@ -85,81 +87,69 @@ function MultiplayerBingoGame() {
           setMaxAvailablePlayers(data.gameData.maxPlayers)
           setUsedPlayers([])
           setGameState('playing')
+          setGameMode('timed')
+          
+          // Initialize timer for this player
+          setTimeRemaining(10)
+          setIsTimerActive(true)
         }
       })
 
       channel.bind('cell-selected', (data) => {
-        console.log('Cell selected event received:', {
-          playerName: data.playerName,
-          isValid: data.isValid,
-          categoryId: data.categoryId,
-          totalValidSelections: data.totalValidSelections
-        });
-
+        // Update scores in real-time for all players
         if (data.isValid) {
-          // Use server's total for the score
-          if (data.totalValidSelections !== undefined) {
-            setPlayerScores(prev => ({
-              ...prev,
-              [data.playerName]: data.totalValidSelections
-            }));
-            console.log(`Updated score for ${data.playerName} to ${data.totalValidSelections}`);
-          }
-
-          if (data.playerName === playerName) {
-            correctSound.play();
-            setValidSelections(prev => [...prev, data.categoryId]);
-            setSelectedCells(data.playerState.selectedCells || [])
-            setCurrentPlayer(data.playerState.currentPlayer)
-            setUsedPlayers(prev => {
-              const newUsedPlayers = [...prev, data.playerState.lastUsedPlayer]
-              if (newUsedPlayers.length >= maxAvailablePlayers) {
-                console.log('Game over triggered by valid selection')
-                setIsGameOver(true)
-                setGameState('finished')
-                handleGameOver()
-              }
-              return newUsedPlayers
-            })
-          }
+          setPlayerScores(prev => ({
+            ...prev,
+            [data.playerName]: data.totalValidSelections || 0
+          }));
         }
 
+        // Only handle the rest if it's for the current player
         if (data.playerName === playerName) {
           if (data.isValid) {
-            correctSound.play()
-            setSelectedCells(data.playerState.selectedCells || [])
-            setCurrentPlayer(data.playerState.currentPlayer)
+            correctSound.play();
+            setValidSelections(prev => [...prev, data.categoryId]);
+            setSelectedCells(data.playerState.selectedCells || []);
+            setCurrentPlayer(data.playerState.currentPlayer);
             setUsedPlayers(prev => {
-              const newUsedPlayers = [...prev, data.playerState.lastUsedPlayer]
+              const newUsedPlayers = [...prev, data.playerState.lastUsedPlayer];
               if (newUsedPlayers.length >= maxAvailablePlayers) {
-                console.log('Game over triggered by valid selection')
-                setIsGameOver(true)
-                setGameState('finished')
-                handleGameOver()
+                console.log('Game over triggered by valid selection');
+                setIsGameOver(true);
+                setGameState('finished');
+                handleGameOver();
               }
-              return newUsedPlayers
-            })
+              return newUsedPlayers;
+            });
+            
+            // Only reset timer for this player
+            setTimeRemaining(10);
+            setIsTimerActive(true);
           } else {
-            wrongSound.play()
-            setIsInteractionDisabled(true)
-            setCurrentInvalidSelection(data.categoryId)
-            setMaxAvailablePlayers(prev => Math.max(prev - 2, usedPlayers.length + 1))
+            wrongSound.play();
+            setIsInteractionDisabled(true);
+            setCurrentInvalidSelection(data.categoryId);
+            setMaxAvailablePlayers(prev => Math.max(prev - 2, usedPlayers.length + 1));
             setUsedPlayers(prev => {
-              const newUsedPlayers = [...prev, data.playerState.lastUsedPlayer]
+              const newUsedPlayers = [...prev, data.playerState.lastUsedPlayer];
               if (newUsedPlayers.length >= maxAvailablePlayers - 2) {
-                console.log('Game over triggered by invalid selection')
-                setIsGameOver(true)
-                setGameState('finished')
-                handleGameOver()
+                console.log('Game over triggered by invalid selection');
+                setIsGameOver(true);
+                setGameState('finished');
+                handleGameOver();
               }
-              return newUsedPlayers
-            })
-            setCurrentPlayer(data.playerState.currentPlayer)
+              return newUsedPlayers;
+            });
+            setCurrentPlayer(data.playerState.currentPlayer);
             
             setTimeout(() => {
-              setCurrentInvalidSelection(null)
-              setIsInteractionDisabled(false)
-            }, 800)
+              setCurrentInvalidSelection(null);
+              setIsInteractionDisabled(false);
+            }, 800);
+            
+            // Only reset timer for this player
+            setTimeRemaining(10);
+            setIsTimerActive(true);
           }
         }
       })
@@ -198,28 +188,46 @@ function MultiplayerBingoGame() {
         }
       })
 
-      channel.bind('turn-skipped', (data) => {
+      channel.bind('player-skipped', (data) => {
+        console.log('Player skipped event received:', data);
+        
+        // Only respond to skip events for this player
         if (data.playerName === playerName) {
-          setIsInteractionDisabled(true)
-          setShowSkipAnimation(true)
-          setCurrentPlayer(data.nextPlayer)
+          setShowSkipAnimation(true);
+          
+          // Update used players for this player only
           setUsedPlayers(prev => {
-            const newUsedPlayers = [...prev, data.skippedPlayerId]
-            setMaxAvailablePlayers(Math.max(maxAvailablePlayers - 1, newUsedPlayers.length + 1))
-            // Check if game should end after skip
-            if (newUsedPlayers.length >= maxAvailablePlayers - 1) {
-              console.log('Game over triggered by skip')
-              setIsGameOver(true)
-              setGameState('finished')
-              handleGameOver()
+            // Add skipped player to usedPlayers array
+            const newUsedPlayers = [...prev];
+            if (data.skippedPlayerId && !newUsedPlayers.includes(data.skippedPlayerId)) {
+              newUsedPlayers.push(data.skippedPlayerId);
             }
-            return newUsedPlayers
-          })
+            
+            // Check if we've reached the max available players limit
+            if (newUsedPlayers.length >= maxAvailablePlayers) {
+              console.log('Game over triggered by skip (reached max available players)');
+              setIsGameOver(true);
+              setGameState('finished');
+              handleGameOver();
+            }
+            
+            return newUsedPlayers;
+          });
+          
+          // Update game state with new player
+          if (data.playerState) {
+            setCurrentPlayer(data.playerState.currentPlayer);
+            
+            // Reset timer for just this player
+            setTimeRemaining(10);
+            setIsTimerActive(true);
+          }
+          
           setTimeout(() => {
-            setShowSkipAnimation(false)
-            setIsInteractionDisabled(false)
-          }, 1000)
+            setShowSkipAnimation(false);
+          }, 800);
         }
+        // Ignore events for other players - don't reset timer
       })
 
       channel.bind('player-finished', (data) => {
@@ -240,13 +248,20 @@ function MultiplayerBingoGame() {
           })
         }
         
-        // Add to finished players list
-        setFinishedPlayers(prev => {
-          if (!prev.includes(data.playerName)) {
-            return [...prev, data.playerName]
-          }
-          return prev
-        })
+        // Add to finished players if not already there
+        if (!finishedPlayers.includes(data.playerName)) {
+          console.log(`Adding ${data.playerName} to finished players`);
+          setFinishedPlayers(prev => [...prev, data.playerName]);
+        }
+        
+        // Check if all players have finished
+        const allFinished = [...players.map(p => p.name)]
+          .every(name => [...finishedPlayers, data.playerName].includes(name));
+        
+        if (allFinished) {
+          console.log('All players have finished');
+          setAllPlayersFinished(true);
+        }
       })
 
       channel.bind('game-reset', (data) => {
@@ -265,38 +280,35 @@ function MultiplayerBingoGame() {
 
       // Add/update player-left event handler
       channel.bind('player-left', (data) => {
-        console.log('Player left event received:', data);
+        console.log('Player left event:', data);
         
-        // Update players list with remaining players
-        if (data.remainingPlayers) {
-          setPlayers(data.remainingPlayers);
+        // Update players list without the player who left
+        setPlayers(data.remainingPlayers);
+        
+        // Remove the player from finished players if they were there
+        if (finishedPlayers.includes(data.playerName)) {
+          setFinishedPlayers(prev => prev.filter(name => name !== data.playerName));
         }
         
-        // Remove from finished players if they were finished
-        setFinishedPlayers(prev => prev.filter(p => p !== data.playerName));
-        
-        // Update player scores
+        // Remove player from scores
         setPlayerScores(prev => {
-          const { [data.playerName]: removed, ...rest } = prev;
-          return rest;
+          const newScores = {...prev};
+          delete newScores[data.playerName];
+          return newScores;
         });
-
+        
         toast({
-          title: "Player Left",
+          title: "Player left",
           description: `${data.playerName} has left the game`,
           status: "info",
-          duration: 3000,
         });
-
-        // If game is in progress and not enough players, reset game
-        if (data.remainingPlayers.length < 2 && gameState === 'playing') {
-          setGameState('waiting');
-          setIsGameOver(false);
-          toast({
-            title: "Game Ended",
-            description: "Not enough players to continue",
-            status: "warning",
-          });
+        
+        // Check if we need to update allPlayersFinished
+        if (data.remainingPlayers.length > 0) {
+          const allFinished = data.remainingPlayers.every(player => 
+            finishedPlayers.includes(player.name)
+          );
+          setAllPlayersFinished(allFinished);
         }
       });
 
@@ -309,7 +321,7 @@ function MultiplayerBingoGame() {
           duration: 5000,
         });
         // Redirect to home
-        window.location.href = '/';
+        window.location.href = '/multiplayer-bingo';
       });
 
       // Update the player-joined event handler
@@ -328,6 +340,27 @@ function MultiplayerBingoGame() {
         }
       });
 
+      // Add the game-over handler to force mark everyone as finished
+      channel.bind('game-over', (data) => {
+        console.log('Game over event received');
+        setIsGameOver(true);
+        setGameState('finished');
+        
+        // Only mark ourselves as finished if we haven't already
+        if (!finishedPlayers.includes(playerName)) {
+          handlePlayerFinished();
+        }
+        
+        // Check if all players are finished
+        const allFinished = players.every(player => 
+          finishedPlayers.includes(player.name)
+        );
+        
+        if (allFinished) {
+          setAllPlayersFinished(true);
+        }
+      });
+
       return () => {
         pusher.unsubscribe(`room-${roomId}`)
       }
@@ -341,8 +374,22 @@ function MultiplayerBingoGame() {
     }
   }, [players, finishedPlayers])
 
-  const handleModeSelect = async (isTimed) => {
-    setGameMode(isTimed ? 'timed' : 'classic')
+  useEffect(() => {
+    let timerInterval;
+    
+    if (gameState === 'playing' && gameMode === 'timed' && isTimerActive && timeRemaining > 0) {
+      timerInterval = setInterval(() => {
+        setTimeRemaining(prev => prev - 1);
+      }, 1000);
+    }
+    
+    return () => {
+      if (timerInterval) clearInterval(timerInterval);
+    };
+  }, [gameState, gameMode, isTimerActive, timeRemaining]);
+
+  const handleModeSelect = async () => {
+    setGameMode('timed')
     
     try {
       const response = await fetch(`${API_BASE_URL}/api/start-game`, {
@@ -351,7 +398,7 @@ function MultiplayerBingoGame() {
         body: JSON.stringify({
           roomId,
           playerName,
-          gameMode: isTimed ? 'timed' : 'classic'
+          gameMode: 'timed'
         })
       })
 
@@ -461,31 +508,43 @@ function MultiplayerBingoGame() {
     if (isInteractionDisabled || isGameOver) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/skip-turn`, {
+      setIsInteractionDisabled(true);
+      setShowSkipAnimation(true);
+      
+      // Reset timer for next player
+      setTimeRemaining(10);
+      
+      const response = await fetch(`${API_BASE_URL}/api/skip-player`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          roomId, 
+        body: JSON.stringify({
+          roomId,
           playerName,
-          currentPlayerId: currentPlayer?.id,
-          usedPlayers: usedPlayers
         })
-      })
+      });
       
-      if (!response.ok) throw new Error('Failed to skip turn')
+      if (!response.ok) {
+        throw new Error('Failed to skip player');
+      }
       
+      setTimeout(() => {
+        setShowSkipAnimation(false);
+        setIsInteractionDisabled(false);
+        // Activate timer for next player's turn
+        setIsTimerActive(true);
+      }, 800);
     } catch (error) {
-      console.error('Error skipping turn:', error)
-      toast({
-        title: "Error",
-        description: "Failed to skip turn",
-        status: "error",
-      })
+      console.error('Error skipping player:', error);
+      setIsInteractionDisabled(false);
     }
   }
 
   const handleTimeUp = () => {
-    handleSkip()
+    if (gameState !== 'playing' || isInteractionDisabled) return;
+    
+    console.log('Timer expired, auto-skipping');
+    setIsTimerActive(false);
+    handleSkip();
   }
 
   const handleCreateRoom = async () => {
@@ -582,31 +641,46 @@ function MultiplayerBingoGame() {
 
   // Function to notify other players when game is over
   const handleGameOver = async () => {
-    console.log('Handling game over...')
-    if (hasFinished) {
-      console.log('Already finished, ignoring duplicate call')
-      return
+    console.log('Game over handler called');
+    
+    // Make sure we're marked as finished locally first (don't wait for the server)
+    if (!finishedPlayers.includes(playerName)) {
+      // Immediately update the local state first
+      setFinishedPlayers(prev => [...prev, playerName]);
+      setHasFinished(true);
+      
+      // Then tell the server
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/player-finished`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            roomId,
+            playerName
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to send game over notification');
+        }
+      } catch (error) {
+        console.error('Error notifying game over:', error);
+        // Already marked locally as finished, so no need to revert
+      }
     }
     
-    try {
-      setHasFinished(true)
-      const response = await fetch(`${API_BASE_URL}/api/player-finished`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId,
-          playerName
-        })
-      })
-      
-      if (!response.ok) {
-        throw new Error('Failed to send game over notification')
-      }
-    } catch (error) {
-      console.error('Error notifying game over:', error)
-      // Don't reset hasFinished on error to prevent retries
+    setIsGameOver(true);
+    setGameState('finished');
+    
+    // Check if all players are finished
+    const allFinished = players.every(player => 
+      [...finishedPlayers, playerName].includes(player.name)
+    );
+    
+    if (allFinished) {
+      setAllPlayersFinished(true);
     }
-  }
+  };
 
   // Debug logs
   useEffect(() => {
@@ -712,12 +786,55 @@ function MultiplayerBingoGame() {
     } catch (error) {
       console.error('Error exiting room:', error);
       // Still redirect even if the API call fails
-      window.location.href = '/';
+      window.location.href = '/multiplayer-bingo';
     }
   };
 
   // Update game mode selection component to check player count
   const canStartGame = players.length >= 2 && players.length <= 5;
+
+  // Also add automatic player finished detection when all players are used
+  useEffect(() => {
+    // Auto-detect game completion when all players are used up
+    if (gameState === 'playing' && usedPlayers.length >= maxAvailablePlayers && !hasFinished) {
+      console.log('Auto-finishing game: all players used up');
+      handlePlayerFinished();
+    }
+  }, [usedPlayers.length, maxAvailablePlayers, gameState, hasFinished]);
+
+  // Let's also update the handlePlayerFinished function
+  const handlePlayerFinished = async () => {
+    if (hasFinished) {
+      console.log('Already marked as finished, not sending duplicate request');
+      return;
+    }
+    
+    // Mark as finished locally first
+    setHasFinished(true);
+    
+    // Add ourselves to finished players immediately
+    if (!finishedPlayers.includes(playerName)) {
+      setFinishedPlayers(prev => [...prev, playerName]);
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/player-finished`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomId,
+          playerName
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to notify server about finished state');
+      }
+    } catch (error) {
+      console.error('Error marking as finished:', error);
+      // Don't revert local state since we want the UI to show finished
+    }
+  };
 
   if (gameState === 'init') {
     return (
@@ -991,7 +1108,9 @@ function MultiplayerBingoGame() {
                     {currentPlayer.f} {currentPlayer.g}
                   </Text>
                   {gameMode === 'timed' && (
-                    <MpTimer seconds={timeRemaining} onTimeUp={handleTimeUp} />
+                    <Box position="relative" display="flex" justifyContent="center" mb={2}>
+                      <MpTimer seconds={timeRemaining} onTimeUp={handleTimeUp} />
+                    </Box>
                   )}
                 </HStack>
               </Box>
