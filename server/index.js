@@ -67,6 +67,40 @@ const activeRooms = new Map();
 // Add tracking for finished players
 const finishedPlayers = new Set();
 
+// Add this helper function to track disconnected players
+const disconnectedPlayers = new Set();
+
+// Add disconnect tracking to the WebSocket connection handler
+pusher.webhook(app);
+
+app.post('/pusher/webhook', (req, res) => {
+  const events = req.body.events || [];
+  events.forEach(event => {
+    if (event.name === 'client_disconnected') {
+      console.log(`Client disconnected: ${event.channel}`);
+      const [_, roomId, playerName] = event.channel.split('-');
+      if (roomId && playerName) {
+        handlePlayerDisconnect(roomId, playerName);
+      }
+    }
+  });
+  res.sendStatus(200);
+});
+
+function handlePlayerDisconnect(roomId, playerName) {
+  console.log(`Handling disconnect for player ${playerName} in room ${roomId}`);
+  disconnectedPlayers.add(`${roomId}-${playerName}`);
+  
+  // Clean up after a short delay to handle temporary disconnects
+  setTimeout(() => {
+    if (disconnectedPlayers.has(`${roomId}-${playerName}`)) {
+      console.log(`Player ${playerName} did not reconnect, cleaning up`);
+      cleanupPlayer(roomId, playerName);
+      disconnectedPlayers.delete(`${roomId}-${playerName}`);
+    }
+  }, 5000); // 5 second grace period
+}
+
 // Helper function to get a random card
 function getRandomCard() {
   return gameCards[Math.floor(Math.random() * gameCards.length)];
@@ -648,7 +682,7 @@ app.post('/api/player-finished', async (req, res) => {
   }
 });
 
-// Add this helper function to check player status
+// Update the getPlayerStatus function
 function getPlayerStatus(roomId) {
   const room = activeRooms.get(roomId);
   if (!room) return null;
@@ -660,12 +694,24 @@ function getPlayerStatus(roomId) {
     disconnectedPlayers: []
   };
 
-  room.players.forEach(player => {
+  // Filter out disconnected players first
+  const activePlayers = room.players.filter(player => 
+    !disconnectedPlayers.has(`${roomId}-${player.name}`)
+  );
+
+  activePlayers.forEach(player => {
     const finishedKey = `${roomId}-${player.name}`;
     if (finishedPlayers.has(finishedKey)) {
       status.finishedPlayers.push(player.name);
     } else {
       status.unfinishedPlayers.push(player.name);
+    }
+  });
+
+  // Add disconnected players to the list
+  room.players.forEach(player => {
+    if (disconnectedPlayers.has(`${roomId}-${player.name}`)) {
+      status.disconnectedPlayers.push(player.name);
     }
   });
 
@@ -772,22 +818,21 @@ app.post('/api/reset-game', async (req, res) => {
     const status = getPlayerStatus(roomId);
     console.log('Room state:', {
       playerCount: room.players.length,
+      activePlayerCount: room.players.filter(p => !disconnectedPlayers.has(`${roomId}-${p.name}`)).length,
       gameState: room.gameState,
       hasCurrentGame: !!room.currentGame
     });
     console.log('Player status:', status);
 
-    // Clean up any players who have left
-    const departed = room.players.filter(p => 
-      !status.finishedPlayers.includes(p.name) && 
-      !status.unfinishedPlayers.includes(p.name)
-    );
-    console.log(`Cleaned up ${departed.length} departed players`);
-    departed.forEach(p => cleanupPlayer(roomId, p.name));
+    // Clean up disconnected players
+    status.disconnectedPlayers.forEach(playerName => {
+      cleanupPlayer(roomId, playerName);
+    });
 
     // Check if all active players have finished
     const unfinished = status.unfinishedPlayers.filter(p => 
-      room.players.some(rp => rp.name === p)
+      room.players.some(rp => rp.name === p) && 
+      !disconnectedPlayers.has(`${roomId}-${p}`)
     );
     
     if (unfinished.length > 0) {
@@ -800,6 +845,9 @@ app.post('/api/reset-game', async (req, res) => {
 
     console.log('All checks passed, proceeding with reset');
     resetRoom(roomId);
+
+    // Update the players list to remove disconnected players
+    room.players = room.players.filter(p => !disconnectedPlayers.has(`${roomId}-${p.name}`));
 
     await pusher.trigger(`room-${roomId}`, 'game-reset', {
       activePlayers: room.players,
