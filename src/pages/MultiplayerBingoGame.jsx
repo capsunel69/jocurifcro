@@ -312,11 +312,27 @@ function MultiplayerBingoGame() {
         window.location.href = '/';
       });
 
+      // Update the player-joined event handler
+      channel.bind('player-joined', (data) => {
+        console.log('Player joined event received:', data);
+        // Always update players list with the full list from server
+        setPlayers(data.players);
+        
+        // Only show toast if it's not the current player joining
+        if (data.playerName !== playerName) {
+          toast({
+            title: "Player joined",
+            description: `${data.playerName} has joined the game!`,
+            status: "info",
+          });
+        }
+      });
+
       return () => {
         pusher.unsubscribe(`room-${roomId}`)
       }
     }
-  }, [roomId, playerName, maxAvailablePlayers, gameState])
+  }, [roomId, playerName, maxAvailablePlayers, gameState, toast])
 
   useEffect(() => {
     // Check if all players have finished
@@ -558,25 +574,6 @@ function MultiplayerBingoGame() {
       });
     }
   };
-
-  useEffect(() => {
-    if (roomId) {
-      const channel = pusher.subscribe(`room-${roomId}`);
-      
-      channel.bind('player-joined', (data) => {
-        setPlayers(data.players);
-        toast({
-          title: "Player joined",
-          description: `${data.playerName} has joined the game!`,
-          status: "info",
-        });
-      });
-
-      return () => {
-        pusher.unsubscribe(`room-${roomId}`);
-      };
-    }
-  }, [roomId]);
 
   // Debug logging
   console.log('Current game state:', gameState)

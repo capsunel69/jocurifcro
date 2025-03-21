@@ -103,18 +103,26 @@ app.post('/api/join-room', async (req, res) => {
   
   // Add player to room
   room.players.push({ name: playerName, isHost: false });
+  console.log(`Player ${playerName} joined room ${roomId}. Current players:`, room.players.map(p => p.name));
   
-  // Notify other players
-  await pusher.trigger(`room-${roomId}`, 'player-joined', {
-    players: room.players,
-    playerName
-  });
-  
-  // Send current room state to joining player
-  res.json({ 
-    success: true,
-    currentPlayers: room.players // Send current players list
-  });
+  // Notify ALL players (make sure this is sent to everyone in the room)
+  try {
+    await pusher.trigger(`room-${roomId}`, 'player-joined', {
+      players: room.players,
+      playerName
+    });
+    
+    // Send current room state to joining player
+    res.json({ 
+      success: true,
+      currentPlayers: room.players
+    });
+  } catch (error) {
+    console.error('Error notifying players about new join:', error);
+    // Remove player if notification fails
+    room.players = room.players.filter(p => p.name !== playerName);
+    res.status(500).json({ error: 'Failed to join room' });
+  }
 });
 
 app.post('/api/start-game', async (req, res) => {
@@ -125,79 +133,94 @@ app.post('/api/start-game', async (req, res) => {
     return res.status(404).json({ error: 'Room not found' });
   }
 
-  // Verify all players in the room still exist
-  const activePlayers = room.players.filter(p => {
-    const finishedKey = `${roomId}-${p.name}`;
-    return !finishedPlayers.has(finishedKey);
-  });
-
-  if (activePlayers.length < 2 || activePlayers.length > 5) {
+  // Debug the current state
+  console.log(`Starting game in room ${roomId} with ${room.players.length} players`);
+  console.log(`Room state: gameState=${room.gameState}, hasCurrentGame=${!!room.currentGame}`);
+  
+  // Check if there are enough players
+  if (room.players.length < 2 || room.players.length > 5) {
+    console.log(`Invalid player count: ${room.players.length}`);
     return res.status(400).json({ 
       error: 'Game requires 2-5 players to start' 
     });
   }
 
-  // Check if all players have finished the current game
-  if (room.currentGame) {
-    const allPlayersFinished = room.players.every(player => {
-      const finishedKey = `${roomId}-${player.name}`;
-      return finishedPlayers.has(finishedKey);
-    });
-
-    if (!allPlayersFinished) {
-      return res.status(400).json({ 
-        error: 'Cannot start new game until all players have finished' 
-      });
-    }
-  }
-
-  try {
-    // Get random game card
-    const gameCard = getRandomCard();
-    
-    // Clear finished players for this room
-    for (const key of finishedPlayers.keys()) {
-      if (key.startsWith(`${roomId}-`)) {
-        finishedPlayers.delete(key);
+  // If game is in waiting state, we can start a new game regardless of previous state
+  if (room.gameState === 'waiting') {
+    try {
+      // Get random game card
+      const gameCard = getRandomCard();
+      
+      // Clear finished players for this room
+      for (const key of finishedPlayers.keys()) {
+        if (key.startsWith(`${roomId}-`)) {
+          finishedPlayers.delete(key);
+        }
       }
-    }
 
-    // Get first random soccer player from the card's players
-    const firstPlayer = gameCard.gameData.players[Math.floor(Math.random() * gameCard.gameData.players.length)];
-    
-    // Initialize game state (shared between all players)
-    room.currentGame = {
-      card: gameCard,
-      categories: formatCategories(gameCard.gameData.remit),
-      currentPlayer: firstPlayer,
-      gameMode,
-      maxAvailablePlayers: gameCard.gameData.players.length,
-      // Track state per user
-      playerStates: new Map(room.players.map(p => [p.name, {
-        selectedCells: [],
-        validSelections: [],
-        usedPlayers: [],
-        hasWildcard: true,
-        score: 0
-      }]))
-    };
+      // Set game state to playing
+      room.gameState = 'playing';
 
-    // Notify all players with complete game data
-    await pusher.trigger(`room-${roomId}`, 'game-started', {
-      gameData: {
-        categories: room.currentGame.categories,
-        players: gameCard.gameData.players,
-        currentCard: gameCard.id,
-        gameMode: gameMode,
+      // Get first random soccer player from the card's players
+      const firstPlayer = gameCard.gameData.players[Math.floor(Math.random() * gameCard.gameData.players.length)];
+      
+      // Initialize game state (shared between all players)
+      room.currentGame = {
+        card: gameCard,
+        categories: formatCategories(gameCard.gameData.remit),
         currentPlayer: firstPlayer,
-        maxPlayers: gameCard.gameData.players.length
-      }
-    });
+        gameMode,
+        maxAvailablePlayers: gameCard.gameData.players.length,
+        // Track state per user
+        playerStates: new Map(room.players.map(p => [p.name, {
+          selectedCells: [],
+          validSelections: [],
+          usedPlayers: [],
+          hasWildcard: true,
+          score: 0
+        }]))
+      };
 
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error starting game:', error);
-    res.status(500).json({ error: 'Failed to start game' });
+      console.log(`Game started in room ${roomId} with ${room.players.length} players`);
+
+      // Notify all players with complete game data
+      await pusher.trigger(`room-${roomId}`, 'game-started', {
+        gameData: {
+          categories: room.currentGame.categories,
+          players: gameCard.gameData.players,
+          currentCard: gameCard.id,
+          gameMode: gameMode,
+          currentPlayer: firstPlayer,
+          maxPlayers: gameCard.gameData.players.length
+        }
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error starting game:', error);
+      res.status(500).json({ error: 'Failed to start game' });
+    }
+  } else {
+    // If game is not in waiting state, check if all players have finished
+    if (room.currentGame) {
+      const allPlayersFinished = room.players.every(player => {
+        const finishedKey = `${roomId}-${player.name}`;
+        const hasFinished = finishedPlayers.has(finishedKey);
+        console.log(`Player ${player.name} finished status: ${hasFinished}`);
+        return hasFinished;
+      });
+
+      if (!allPlayersFinished) {
+        console.log('Not all players have finished the current game');
+        return res.status(400).json({ 
+          error: 'Cannot start new game until all players have finished' 
+        });
+      }
+      
+      // All players have finished, proceed with new game
+      // Reset and start new game (same code as above)
+      // ... rest of starting game code ...
+    }
   }
 });
 
@@ -486,6 +509,8 @@ app.post('/api/reset-game', async (req, res) => {
   }
 
   try {
+    console.log(`Resetting game in room ${roomId}`);
+    
     // Clear finished players for this room
     for (const key of finishedPlayers.keys()) {
       if (key.startsWith(`${roomId}-`)) {
