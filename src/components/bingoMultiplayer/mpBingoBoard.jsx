@@ -279,7 +279,7 @@ function mpBingoBoard({ selectedCells, onCellSelect, validSelections = [], wildc
               color="yellow.400"
               textShadow="1px 1px 2px rgba(0,0,0,0.5)"
             >
-              -1 Player
+              Next Player
             </Text>
           </VStack>
         </Box>

@@ -721,7 +721,7 @@ app.post('/api/exit-room', async (req, res) => {
 });
 
 app.post('/api/skip-player', async (req, res) => {
-  const { roomId, playerName } = req.body;
+  const { roomId, playerName, currentPlayerId } = req.body;
   const room = activeRooms.get(roomId);
   
   if (!room || !room.currentGame) {
@@ -729,6 +729,8 @@ app.post('/api/skip-player', async (req, res) => {
   }
 
   try {
+    console.log(`Player ${playerName} is skipping current player: ${currentPlayerId}`);
+    
     // Get current player state for this room
     const playerState = room.currentGame.playerStates.get(playerName) || {
       selectedCells: [],
@@ -738,56 +740,51 @@ app.post('/api/skip-player', async (req, res) => {
     };
 
     // Get the current player ID specifically for this user
-    const currentPlayerId = playerState.currentPlayer?.id || room.currentGame.currentPlayer?.id;
+    const currentPlayerIdToSkip = currentPlayerId || playerState.currentPlayer?.id || room.currentGame.currentPlayer?.id;
     
-    if (currentPlayerId) {
-      // Add the current player to used players list first (only for this player)
-      playerState.usedPlayers = [...playerState.usedPlayers, currentPlayerId];
+    if (currentPlayerIdToSkip) {
+      // Add the current player to used players list (only for this player)
+      if (!playerState.usedPlayers.includes(currentPlayerIdToSkip)) {
+        playerState.usedPlayers.push(currentPlayerIdToSkip);
+        console.log(`Added player ${currentPlayerIdToSkip} to used players for ${playerName}`);
+      }
     }
 
-    // Choose next player who is not in usedPlayers array (for this specific player)
+    // Choose next player who is not in usedPlayers array
     const availablePlayers = room.currentGame.card.gameData.players.filter(
       p => !playerState.usedPlayers.includes(p.id)
     );
 
+    console.log(`Available players after skip: ${availablePlayers.length}`);
+
     if (availablePlayers.length === 0) {
-      // Game over if no more players (only for this player)
+      // Game over if no more players
       console.log(`Game over triggered by skip for ${playerName} (no more available players)`);
+      room.currentGame.playerStates.set(playerName, playerState);
       
-      // Don't trigger game-over for everyone, only for this player
-      await pusher.trigger(`room-${roomId}-${playerName}`, 'game-over', {});
+      await pusher.trigger(`room-${roomId}-${playerName}`, 'game-over', {
+        reason: 'no-more-players'
+      });
       return res.status(200).json({ gameOver: true });
     }
 
-    // Select random next player (only for this player)
+    // Select random next player
     const nextPlayer = availablePlayers[Math.floor(Math.random() * availablePlayers.length)];
+    console.log(`Selected next player for ${playerName}: ${nextPlayer.id}`);
     
-    // Update state (we've already added the current player to usedPlayers above)
-    // Don't update room.currentGame.currentPlayer as that would affect all players
-    playerState.currentPlayer = nextPlayer; // Store current player in player-specific state
+    // Update player state
     room.currentGame.playerStates.set(playerName, playerState);
 
-    console.log(`Player ${playerName} skipped. Used players: ${playerState.usedPlayers.length}/${room.currentGame.maxAvailablePlayers}`);
-    
-    // Check if we've reached the max available players limit
-    if (playerState.usedPlayers.length >= room.currentGame.maxAvailablePlayers) {
-      console.log(`Game over triggered by skip for ${playerName} (reached max available players)`);
-      
-      // Don't trigger game-over for everyone, only for this player
-      await pusher.trigger(`room-${roomId}-${playerName}`, 'game-over', {});
-      return res.status(200).json({ gameOver: true });
-    }
-
-    // Notify ONLY the player who skipped
+    // Notify about the skip
     await pusher.trigger(`room-${roomId}`, 'player-skipped', {
       playerName, // Only this player should react to this event
-      skippedPlayerId: currentPlayerId,
+      skippedPlayerId: currentPlayerIdToSkip,
       playerState: {
         selectedCells: playerState.selectedCells,
         validSelections: playerState.validSelections,
         usedPlayers: playerState.usedPlayers,
-        currentPlayer: nextPlayer, // Send the next player to use
-        lastUsedPlayer: currentPlayerId
+        currentPlayer: nextPlayer,
+        lastUsedPlayer: currentPlayerIdToSkip
       }
     });
 

@@ -250,9 +250,9 @@ function MultiplayerBingoGame() {
               newUsedPlayers.push(data.skippedPlayerId);
             }
             
-            // Check if we've reached the max available players limit
+            // Check if we've used all available players
             if (newUsedPlayers.length >= maxAvailablePlayers) {
-              console.log('Game over triggered by skip (reached max available players)');
+              console.log('Game over triggered by skip (all players used)');
               setIsGameOver(true);
               setGameState('finished');
               handleGameOver();
@@ -261,20 +261,21 @@ function MultiplayerBingoGame() {
             return newUsedPlayers;
           });
           
-          // Update game state with new player
-          if (data.playerState) {
+          // Update current player to the next one
+          if (data.playerState?.currentPlayer) {
             setCurrentPlayer(data.playerState.currentPlayer);
-            
-            // Reset timer for just this player
-            setTimeRemaining(10);
-            setIsTimerActive(true);
           }
           
+          // Reset timer
+          setTimeRemaining(10);
+          setIsTimerActive(true);
+          
+          // Clear skip animation after a delay
           setTimeout(() => {
             setShowSkipAnimation(false);
+            setIsInteractionDisabled(false);
           }, 800);
         }
-        // Ignore events for other players - don't reset timer
       })
 
       channel.bind('player-finished', (data) => {
@@ -563,21 +564,20 @@ function MultiplayerBingoGame() {
   }
 
   const handleSkip = async () => {
-    if (isInteractionDisabled || isGameOver) return
-
+    if (isInteractionDisabled) return;
+    setIsInteractionDisabled(true);
+    
     try {
-      setIsInteractionDisabled(true);
-      setShowSkipAnimation(true);
+      console.log('Skipping current player:', currentPlayer?.id);
       
-      // Reset timer for next player
-      setTimeRemaining(10);
-      
+      // Make API request to skip current player
       const response = await fetch(`${API_BASE_URL}/api/skip-player`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           roomId,
           playerName,
+          currentPlayerId: currentPlayer?.id
         })
       });
       
@@ -585,17 +585,20 @@ function MultiplayerBingoGame() {
         throw new Error('Failed to skip player');
       }
       
-      setTimeout(() => {
-        setShowSkipAnimation(false);
-        setIsInteractionDisabled(false);
-        // Activate timer for next player's turn
-        setIsTimerActive(true);
-      }, 800);
+      // Don't update state here - wait for server event
+      
     } catch (error) {
       console.error('Error skipping player:', error);
       setIsInteractionDisabled(false);
+      toast({
+        title: 'Error',
+        description: 'Failed to skip player',
+        status: 'error',
+        duration: 3000,
+        isClosable: true
+      });
     }
-  }
+  };
 
   const handleTimeUp = () => {
     if (gameState !== 'playing' || isInteractionDisabled) return;
