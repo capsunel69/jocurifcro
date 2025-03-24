@@ -1,4 +1,4 @@
-import { Container, VStack, Heading, useToast, Button, Text, HStack, Box, Stack, Grid } from '@chakra-ui/react'
+import { Container, VStack, Heading, useToast, Button, Text, HStack, Box, Stack, Grid, Menu, MenuButton, MenuList, MenuItem } from '@chakra-ui/react'
 import { useState, useEffect } from 'react'
 import { MdRefresh, MdShuffle } from 'react-icons/md'
 import BingoBoard from '../components/BingoBoard'
@@ -6,6 +6,7 @@ import GameControls from '../components/GameControls'
 import GameModeSelect from '../components/GameModeSelect'
 import Timer from '../components/Timer'
 import { keyframes } from '@emotion/react'
+import { ChevronDownIcon } from '@chakra-ui/icons'
 
 const shakeAnimation = keyframes`
   0%, 100% { transform: translateX(0); }
@@ -147,12 +148,20 @@ function BingoGame() {
     return selectedPlayer
   }
 
-  const handleModeSelect = async (isTimed, useCurrentCard = false) => {
+  const handleModeSelect = async (isTimed, useCurrentCard = false, specificCard = null) => {
     const mode = isTimed ? 'timed' : 'classic'
     const initialTime = 10
     
-    // Get the game card based on whether we want to use the current one or a random one
-    const gameCard = useCurrentCard ? currentCard : getRandomCard()
+    // Get the game card based on the parameters
+    let gameCard
+    if (specificCard) {
+      gameCard = specificCard
+    } else if (useCurrentCard) {
+      gameCard = currentCard
+    } else {
+      gameCard = getRandomCard()
+    }
+
     if (!gameCard) {
       showToast({
         title: "Error",
@@ -583,15 +592,61 @@ function BingoGame() {
                     <Text as="span" color="gray.400"> / {maxAvailablePlayers}</Text>
                   </Text>
                 </Box>
-                <Text
-                  fontSize="3xs"
-                  color="gray.600"
-                  mt={1}
-                  textAlign={['center', 'right']}
-                  w="full"
-                >
-                  Card #{currentCard?.id || 'Unknown'}
-                </Text>
+                <Menu>
+                  <MenuButton
+                    as={Button}
+                    size="xs"
+                    variant="ghost"
+                    rightIcon={<ChevronDownIcon />}
+                    color="gray.400"
+                    _hover={{ color: "white" }}
+                    _active={{ bg: "transparent" }}
+                  >
+                    Card #{currentCard?.id || 'Unknown'}
+                  </MenuButton>
+                  <MenuList 
+                    maxH="300px" 
+                    overflowY="auto"
+                    bg="gray.800"
+                    borderColor="whiteAlpha.200"
+                    boxShadow="lg"
+                    css={{
+                      '&::-webkit-scrollbar': {
+                        width: '8px',
+                      },
+                      '&::-webkit-scrollbar-track': {
+                        background: 'rgba(0, 0, 0, 0.1)',
+                      },
+                      '&::-webkit-scrollbar-thumb': {
+                        background: 'rgba(255, 255, 255, 0.2)',
+                        borderRadius: '4px',
+                      },
+                      '&::-webkit-scrollbar-thumb:hover': {
+                        background: 'rgba(255, 255, 255, 0.3)',
+                      },
+                    }}
+                  >
+                    {availableCards
+                      .sort((a, b) => a.id - b.id)
+                      .map(card => (
+                        <MenuItem
+                          key={card.id}
+                          onClick={() => handleModeSelect(gameMode === 'timed', false, card)}
+                          color={card.id === currentCard?.id ? "brand.400" : "gray.100"}
+                          bg="transparent"
+                          fontWeight={card.id === currentCard?.id ? "bold" : "normal"}
+                          _hover={{
+                            bg: "whiteAlpha.200"
+                          }}
+                          _focus={{
+                            bg: "whiteAlpha.200"
+                          }}
+                        >
+                          Card #{card.id}
+                        </MenuItem>
+                      ))}
+                  </MenuList>
+                </Menu>
               </VStack>
             </HStack>
             
