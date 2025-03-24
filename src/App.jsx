@@ -1,6 +1,9 @@
 import { Routes, Route } from 'react-router-dom'
 import { ChakraProvider, Box } from '@chakra-ui/react'
 import { Global } from '@emotion/react'
+import ReactGA from 'react-ga4'
+import { useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import BingoGame from './pages/BingoGame'
 import GhicesteJucatorul from './pages/GhicesteJucatorul'
@@ -12,7 +15,17 @@ import Footer from './components/Footer'
 import theme from './theme'
 import MultiplayerBingoGame from './pages/MultiplayerBingoGame'
 
+// Initialize GA4 with your measurement ID
+ReactGA.initialize('G-94Z3TXEH8E') // Replace with your actual Measurement ID
+
 function App() {
+  const location = useLocation()
+
+  useEffect(() => {
+    // Send pageview with a location
+    ReactGA.send({ hitType: "pageview", page: location.pathname });
+  }, [location])
+
   return (
     <ChakraProvider theme={theme}>
       <Global
