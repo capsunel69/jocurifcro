@@ -2,13 +2,69 @@ import { Container, VStack, Heading, Text, Button, SimpleGrid, Box, Image, Icon,
 import { useNavigate } from 'react-router-dom'
 import { FaDice, FaUserSecret, FaArrowRight } from 'react-icons/fa'
 
+// New GameCard component
+const GameCard = ({ game, onPlay }) => (
+  <Box
+    bg="blackAlpha.400"
+    borderRadius="2xl"
+    overflow="hidden"
+    transition="all 0.3s"
+    position="relative"
+    _hover={{
+      transform: 'translateY(-4px)',
+      boxShadow: `0 12px 24px -10px rgba(0, 0, 0, 0.7)`,
+    }}
+  >
+    <Box
+      position="absolute"
+      top={0}
+      left={0}
+      right={0}
+      h="4px"
+      bgGradient={game.gradient}
+    />
+    <Image
+      src={game.image}
+      alt={game.title}
+      h="240px"
+      w="full"
+      objectFit="cover"
+    />
+    <Box p={8}>
+      <HStack spacing={4} mb={4}>
+        <Icon as={game.icon} boxSize={6} color="yellow.400" />
+        <Heading size="lg" color="whiteAlpha.900">
+          {game.title}
+        </Heading>
+      </HStack>
+      <Text color="whiteAlpha.800" mb={6} fontSize="lg">
+        {game.description}
+      </Text>
+      <Button
+        rightIcon={<FaArrowRight />}
+        onClick={() => onPlay(game.path)}
+        colorScheme="yellow"
+        size="lg"
+        width="full"
+        _hover={{
+          bg: 'yellow.400',
+          color: 'black',
+          transform: 'translateY(-2px)'
+        }}
+      >
+        Joacă Acum
+      </Button>
+    </Box>
+  </Box>
+)
+
 function HomePage() {
   const navigate = useNavigate()
 
   const games = [
     {
       title: "Bingo",
-      description: "Testeaza-ti cunostintele despre fotbal potrivind jucatorii cu realizarile lor!",
+      description: "Ghiceste fotbalistii legendari si actuali intr-un joc captivant de bingo care iti pune la incercare cunostintele despre fotbal!",
       image: "/images/bingo game.jpg",
       icon: FaDice,
       path: "/bingo",
@@ -16,11 +72,19 @@ function HomePage() {
     },
     {
       title: "Ghiceste Jucatorul",
-      description: "Poti ghici jucatorul misterios? Foloseste indiciile pentru a identifica cine se ascunde in umbra!",
+      description: "Porneste intr-o aventura plina de mister si descopera identitatea fotbalistului ascuns folosind indiciile disponibile!",
       image: "/images/ghiceste.webp",
       icon: FaUserSecret,
       path: "/ghiceste-jucatorul",
       gradient: "linear(to-r, purple.400, blue.400)"
+    },
+    {
+      title: "Bingo Multiplayer",
+      description: "Accepta provocarea si joaca Bingo alaturi de prieteni intr-o experienta multiplayer captivanta si amuzanta!",
+      image: "/images/bingo-multiplayer.jpg",
+      icon: FaDice,
+      path: "/multiplayer-bingo",
+      gradient: "linear(to-r, green.400, teal.400)"
     }
   ]
 
@@ -30,7 +94,7 @@ function HomePage() {
       borderRadius={{ base: 0, md: "xl" }}
     >
       <Container 
-        maxW="1200px" 
+        maxW="1600px" 
         px={{ base: 0, md: 6 }}
         borderRadius={{ base: 0, md: "xl" }}
       >
@@ -49,62 +113,21 @@ function HomePage() {
             </Heading>
           </VStack>
 
-          {/* Games Grid */}
-          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={8} w="full">
+          {/* Updated Games Grid */}
+          <SimpleGrid 
+            columns={{ base: 1, lg: 3 }} 
+            spacing={8} 
+            w="full"
+            px={{ base: 4, md: 8 }}
+            maxW="1600px"
+            mx="auto"
+          >
             {games.map((game, index) => (
-              <Box
+              <GameCard 
                 key={index}
-                bg="blackAlpha.400"
-                borderRadius="2xl"
-                overflow="hidden"
-                transition="all 0.3s"
-                position="relative"
-                _hover={{
-                  transform: 'translateY(-4px)',
-                  boxShadow: `0 12px 24px -10px rgba(0, 0, 0, 0.7)`,
-                }}
-              >
-                <Box
-                  position="absolute"
-                  top={0}
-                  left={0}
-                  right={0}
-                  h="4px"
-                  bgGradient={game.gradient}
-                />
-                <Image
-                  src={game.image}
-                  alt={game.title}
-                  h="240px"
-                  w="full"
-                  objectFit="cover"
-                />
-                <Box p={8}>
-                  <HStack spacing={4} mb={4}>
-                    <Icon as={game.icon} boxSize={6} color="yellow.400" />
-                    <Heading size="lg" color="whiteAlpha.900">
-                      {game.title}
-                    </Heading>
-                  </HStack>
-                  <Text color="whiteAlpha.800" mb={6} fontSize="lg">
-                    {game.description}
-                  </Text>
-                  <Button
-                    rightIcon={<FaArrowRight />}
-                    onClick={() => navigate(game.path)}
-                    colorScheme="yellow"
-                    size="lg"
-                    width="full"
-                    _hover={{
-                      bg: 'yellow.400',
-                      color: 'black',
-                      transform: 'translateY(-2px)'
-                    }}
-                  >
-                    Joacă Acum
-                  </Button>
-                </Box>
-              </Box>
+                game={game}
+                onPlay={navigate}
+              />
             ))}
           </SimpleGrid>
         </VStack>
