@@ -106,6 +106,9 @@ function MultiplayerBingoGame() {
 
   const [isLinkCopied, setIsLinkCopied] = useState(false)
 
+  // Add new state for ready status
+  const [isReady, setIsReady] = useState(false)
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const rid = params.get('roomId')
@@ -403,6 +406,17 @@ function MultiplayerBingoGame() {
         setIsGameOver(true);
         setGameState('finished');
         handleGameOver();
+      });
+
+      // Add new event handler for ready status changes
+      channel.bind('player-ready-changed', (data) => {
+        setPlayers(prevPlayers => 
+          prevPlayers.map(player => 
+            player.name === data.playerName 
+              ? { ...player, isReady: data.isReady }
+              : player
+          )
+        );
       });
 
       return () => {
@@ -819,12 +833,14 @@ function MultiplayerBingoGame() {
     }
   };
 
-  // Add this effect near the other useEffect hooks
+  // Update the useEffect that handles visibility and disconnection
   useEffect(() => {
     let timeoutId;
-    let isHidden = false;
+    let isClosing = false;
 
-    const sendExitRequest = () => {
+    // Handle actual page/browser closure
+    const handleBeforeUnload = () => {
+      isClosing = true;
       if (roomId && playerName) {
         const data = new Blob(
           [JSON.stringify({ roomId, playerName })], 
@@ -834,34 +850,45 @@ function MultiplayerBingoGame() {
       }
     };
 
-    // Handle visibility change with a delay to differentiate between
-    // app switching and actual closure
+    // Handle visibility change
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        isHidden = true;
-        timeoutId = setTimeout(() => {
-          if (isHidden) {
-            sendExitRequest();
-          }
-        }, 1000);
-      } else {
-        isHidden = false;
-        if (timeoutId) {
-          clearTimeout(timeoutId);
+      if (document.visibilityState === 'hidden' && !isClosing) {
+        // User switched tabs or minimized, but didn't close
+        // We can optionally notify other players that this player is "away"
+        if (roomId && playerName) {
+          fetch(`${API_BASE_URL}/api/update-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              roomId, 
+              playerName,
+              status: 'away'
+            })
+          }).catch(console.error);
+        }
+      } else if (document.visibilityState === 'visible') {
+        // User came back
+        if (roomId && playerName) {
+          fetch(`${API_BASE_URL}/api/update-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              roomId, 
+              playerName,
+              status: 'active'
+            })
+          }).catch(console.error);
         }
       }
     };
 
-    // These events specifically handle actual page/app closure
+    // Handle actual page hide/unload
     const handlePageHide = (e) => {
-      // Only trigger on actual page unload, not just visibility change
-      if (e.persisted === false) {
-        sendExitRequest();
+      if (!e.persisted) {
+        // Page is being fully unloaded
+        isClosing = true;
+        handleBeforeUnload();
       }
-    };
-
-    const handleBeforeUnload = () => {
-      sendExitRequest();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -876,10 +903,6 @@ function MultiplayerBingoGame() {
       window.removeEventListener('unload', handleBeforeUnload);
       if (timeoutId) {
         clearTimeout(timeoutId);
-      }
-      // Only send exit request if we're actually leaving the page
-      if (isHidden) {
-        sendExitRequest();
       }
     };
   }, [roomId, playerName]);
@@ -1007,6 +1030,31 @@ function MultiplayerBingoGame() {
       };
     }
   }, [roomId, playerName]);
+
+  // Add new function to handle ready toggle
+  const handleReadyToggle = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/toggle-ready`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId, playerName })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update ready status');
+      }
+
+      const data = await response.json();
+      setIsReady(data.isReady);
+    } catch (error) {
+      console.error('Error toggling ready status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update ready status",
+        status: "error",
+      });
+    }
+  };
 
   if (gameState === 'init') {
     return (
@@ -1309,39 +1357,45 @@ function MultiplayerBingoGame() {
                       borderRadius="md"
                     >
                       <Text color="white">{player.name}</Text>
-                      {player.isHost && (
-                        <Badge colorScheme="green">Host</Badge>
-                      )}
+                      <HStack spacing={2}>
+                        {player.isHost && (
+                          <Badge colorScheme="green">Host</Badge>
+                        )}
+                        <Badge colorScheme={player.isReady ? "green" : "red"}>
+                          {player.isReady ? "Ready" : "Not Ready"}
+                        </Badge>
+                      </HStack>
                     </HStack>
                   ))}
                 </VStack>
                 
-                {/* Add waiting message for non-host players */}
-                {!players.find(p => p.name === playerName)?.isHost && (
-                  <Box
-                    mt={4}
-                    p={4}
-                    bg="rgba(0, 0, 0, 0.3)"
-                    borderRadius="md"
-                    border="1px solid rgba(255, 255, 255, 0.1)"
-                  >
-                    <Text
-                      color="gray.300"
-                      textAlign="center"
-                      fontSize="md"
-                    >
-                      Waiting for host to start the game...
-                    </Text>
-                  </Box>
-                )}
+                {/* Ready button for ALL players */}
+                <Button
+                  colorScheme={isReady ? "green" : "red"}
+                  onClick={handleReadyToggle}
+                  w="full"
+                >
+                  {isReady ? "Ready!" : "Click when Ready"}
+                </Button>
                 
+                {/* Host controls - only show game mode select for host */}
                 {players.find(p => p.name === playerName)?.isHost && (
                   <Box w="full" pt={4}>
                     <MpGameModeSelect 
                       onModeSelect={handleModeSelect} 
-                      isDisabled={!canStartGame}
+                      isDisabled={!canStartGame || !players.every(p => p.isReady)}
                       playerCount={players.length}
                     />
+                    {!players.every(p => p.isReady) && (
+                      <Text
+                        color="red.300"
+                        fontSize="sm"
+                        textAlign="center"
+                        mt={2}
+                      >
+                        Waiting for all players to be ready...
+                      </Text>
+                    )}
                   </Box>
                 )}
               </VStack>

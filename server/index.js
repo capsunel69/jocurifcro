@@ -81,16 +81,7 @@ function updatePlayerConnection(roomId, playerName, isConnected) {
   } else {
     console.log(`Player ${playerName} disconnected in room ${roomId}`);
     activeConnections.delete(key);
-    disconnectedPlayers.add(key);
-    
-    // Clean up after a delay
-    setTimeout(() => {
-      if (disconnectedPlayers.has(key)) {
-        console.log(`Cleaning up disconnected player ${playerName}`);
-        cleanupPlayer(roomId, playerName);
-        disconnectedPlayers.delete(key);
-      }
-    }, 5000);
+    // Don't add to disconnectedPlayers here - we'll do that only on actual exit
   }
 }
 
@@ -135,7 +126,7 @@ app.post('/api/create-room', (req, res) => {
   
   // Create the room
   activeRooms.set(roomId, {
-    players: [{ name: playerName, isHost: true }],
+    players: [{ name: playerName, isHost: true, isReady: false }],
     gameState: 'waiting',
     currentGame: null,
     usedCards: []
@@ -166,8 +157,8 @@ app.post('/api/join-room', async (req, res) => {
     return res.status(400).json({ error: 'Room is full (maximum 5 players)' });
   }
   
-  // Add player to room
-  room.players.push({ name: playerName, isHost: false });
+  // Add player to room with ready status
+  room.players.push({ name: playerName, isHost: false, isReady: false });
   console.log(`Player ${playerName} joined room ${roomId}. Current players:`, room.players.map(p => p.name));
   
   // Track the new connection
@@ -198,6 +189,17 @@ app.post('/api/start-game', async (req, res) => {
   if (!room) {
     return res.status(404).json({ error: 'Room not found' });
   }
+
+  // Check if all players are ready
+  const allPlayersReady = room.players.every(player => player.isReady);
+  if (!allPlayersReady) {
+    return res.status(400).json({ error: 'Not all players are ready' });
+  }
+
+  // Reset ready status for all players when game starts
+  room.players.forEach(player => {
+    player.isReady = false;
+  });
 
   // Debug the current state
   console.log(`Starting game in room ${roomId} with ${room.players.length} players`);
@@ -726,19 +728,25 @@ function cleanupPlayer(roomId, playerName) {
   const room = activeRooms.get(roomId);
   if (!room) return;
 
-  // Remove from players array
-  room.players = room.players.filter(p => p.name !== playerName);
+  // Only remove the player if they're actually disconnected
+  const key = `${roomId}-${playerName}`;
+  const isDisconnected = !activeConnections.has(key);
   
-  // Clear player state
-  if (room.currentGame?.playerStates) {
-    room.currentGame.playerStates.delete(playerName);
-  }
+  if (isDisconnected) {
+    // Remove from players array
+    room.players = room.players.filter(p => p.name !== playerName);
+    
+    // Clear player state
+    if (room.currentGame?.playerStates) {
+      room.currentGame.playerStates.delete(playerName);
+    }
 
-  // Clear finished state
-  const finishedKey = `${roomId}-${playerName}`;
-  if (finishedPlayers.has(finishedKey)) {
-    console.log(`Clearing finished state for ${playerName}`);
-    finishedPlayers.delete(finishedKey);
+    // Clear finished state
+    const finishedKey = `${roomId}-${playerName}`;
+    if (finishedPlayers.has(finishedKey)) {
+      console.log(`Clearing finished state for ${playerName}`);
+      finishedPlayers.delete(finishedKey);
+    }
   }
 }
 
@@ -820,9 +828,14 @@ app.post('/api/reset-game', async (req, res) => {
       return res.status(404).json({ error: 'Room not found' });
     }
 
-    // Clear all game state
+    // Reset all game state
     room.gameState = 'waiting';
     room.currentGame = null;
+
+    // Reset ready status for all players
+    room.players.forEach(player => {
+      player.isReady = false;
+    });
 
     // Clear all finished states for this room
     for (const key of finishedPlayers.keys()) {
@@ -1021,6 +1034,68 @@ app.post('/api/skip-player', async (req, res) => {
   } catch (error) {
     console.error('Error skipping player:', error);
     res.status(500).json({ error: 'Failed to skip player' });
+  }
+});
+
+// Add new endpoint to handle status updates
+app.post('/api/update-status', async (req, res) => {
+  const { roomId, playerName, status } = req.body;
+  const room = activeRooms.get(roomId);
+  
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  try {
+    // Update player status in room
+    const player = room.players.find(p => p.name === playerName);
+    if (player) {
+      player.status = status;
+      
+      // Optionally notify other players of status change
+      await pusher.trigger(`room-${roomId}`, 'player-status-changed', {
+        playerName,
+        status,
+        timestamp: Date.now()
+      });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating player status:', error);
+    res.status(500).json({ error: 'Failed to update player status' });
+  }
+});
+
+// Add new endpoint to handle ready status changes
+app.post('/api/toggle-ready', async (req, res) => {
+  const { roomId, playerName } = req.body;
+  const room = activeRooms.get(roomId);
+  
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  try {
+    // Find and update player's ready status
+    const player = room.players.find(p => p.name === playerName);
+    if (player) {
+      player.isReady = !player.isReady;
+      
+      // Notify all players about the status change
+      await pusher.trigger(`room-${roomId}`, 'player-ready-changed', {
+        playerName,
+        isReady: player.isReady,
+        timestamp: Date.now()
+      });
+      
+      res.json({ success: true, isReady: player.isReady });
+    } else {
+      res.status(404).json({ error: 'Player not found' });
+    }
+  } catch (error) {
+    console.error('Error toggling ready status:', error);
+    res.status(500).json({ error: 'Failed to update ready status' });
   }
 });
 
