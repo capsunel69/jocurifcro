@@ -939,9 +939,25 @@ function MultiplayerBingoGame() {
           }
         }
       } else if (document.visibilityState === 'visible') {
-        // User came back
+        // User came back - explicitly set status to active
         if (roomId && playerName) {
-          sendHeartbeat(); // Immediate heartbeat when becoming visible
+          try {
+            await fetch(`${API_BASE_URL}/api/update-status`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                roomId, 
+                playerName,
+                status: 'active',
+                timestamp: Date.now(),
+                forceUpdate: true // Add this flag to force status update
+              })
+            });
+            // Immediate heartbeat when becoming visible
+            sendHeartbeat();
+          } catch (error) {
+            console.error('Error updating active status:', error);
+          }
         }
       }
     };

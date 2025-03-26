@@ -1198,7 +1198,7 @@ app.post('/api/skip-player', async (req, res) => {
 
 // Update the update-status endpoint to handle mobile cases better
 app.post('/api/update-status', async (req, res) => {
-  const { roomId, playerName, status, timestamp } = req.body;
+  const { roomId, playerName, status, timestamp, forceUpdate } = req.body;
   const room = activeRooms.get(roomId);
   
   if (!room) {
@@ -1234,8 +1234,8 @@ app.post('/api/update-status', async (req, res) => {
       };
     });
 
-    // Only notify others if status actually changed
-    if (status !== 'active' || !timestamp) {
+    // Always notify if forceUpdate is true or if status isn't 'active'
+    if (forceUpdate || status !== 'active' || !timestamp) {
       await pusher.trigger(`room-${roomId}`, 'player-status-changed', {
         playerName,
         status,
