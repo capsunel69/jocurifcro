@@ -126,10 +126,10 @@ function formatCategories(remitData) {
   }));
 }
 
-// Add this helper function near the top of the file
+// Update the sanitizeChannelName function to be more strict
 function sanitizeChannelName(channelName) {
-  // Replace spaces and special characters with underscores
-  return channelName.replace(/[^a-zA-Z0-9-_]/g, '_');
+  // Replace any non-alphanumeric characters with dashes and ensure no consecutive dashes
+  return channelName.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-');
 }
 
 // Update the updatePlayerStatus function to use the correct roomId
@@ -1022,8 +1022,6 @@ function cleanupPlayer(roomId, playerName) {
   // Add to disconnected players set
   disconnectedPlayers.add(`${roomId}-${playerName}`);
 
-
-
   // Clean up player status
   playerStatuses.delete(`${roomId}-${playerName}`);
 
@@ -1174,7 +1172,11 @@ app.post('/api/skip-player', async (req, res) => {
       console.log(`Game over triggered by skip for ${playerName} (no more available players)`);
       room.currentGame.playerStates.set(playerName, playerState);
       
-      await pusher.trigger(`room-${roomId}-${playerName}`, 'game-over', {
+      // Use sanitized channel name for player-specific events
+      const sanitizedChannel = sanitizeChannelName(`room-${roomId}-${playerName}`);
+      console.log(`Sending game-over event on channel: ${sanitizedChannel}`);
+      
+      await pusher.trigger(sanitizedChannel, 'game-over', {
         reason: 'no-more-players'
       });
       return res.status(200).json({ gameOver: true });
@@ -1368,7 +1370,7 @@ app.post('/api/kick-player', async (req, res) => {
 // Add a cleanup interval to check for stale connections
 setInterval(() => {
   const now = Date.now();
-  const staleThreshold = 15000; // 15 seconds (3 missed heartbeats)
+  const staleThreshold = 30000; // 30 seconds (3 missed heartbeats)
   
   for (const [key, lastHeartbeat] of playerHeartbeats.entries()) {
     if (now - lastHeartbeat > staleThreshold) {
@@ -1392,7 +1394,7 @@ setInterval(() => {
       playerHeartbeats.delete(key);
     }
   }
-}, 5000); // Check every 5 second
+}, 10000); // Check every 10 second
 
 app.listen(3001, () => {
   console.log('Server running on port 3001');
