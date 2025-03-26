@@ -549,27 +549,39 @@ app.post('/api/use-wildcard', async (req, res) => {
     
     // Mark wildcard as used
     playerState.hasWildcard = false;
+
+    // Add current player to used players list
+    if (!playerState.usedPlayers.includes(currentPlayerId)) {
+      playerState.usedPlayers.push(currentPlayerId);
+    }
+    
+    // Choose next player from those not in usedPlayers
+    const availablePlayers = room.currentGame.card.gameData.players.filter(
+      p => !playerState.usedPlayers.includes(p.id)
+    );
+    
+    // Get next random player
+    const nextPlayer = availablePlayers.length > 0 
+      ? availablePlayers[Math.floor(Math.random() * availablePlayers.length)]
+      : null;
     
     // Update player state
     room.currentGame.playerStates.set(playerName, playerState);
     
-    // Notify all players
+    // Notify all players about wildcard use and next player
     await pusher.trigger(`room-${roomId}`, 'wildcard-used', {
       playerName,
       wildcardMatches: matchIndices,
-      totalValidSelections: playerState.validSelections.length
+      totalValidSelections: playerState.validSelections.length,
+      nextPlayer, // Add next player to the event data
+      skippedPlayerId: currentPlayerId // Add skipped player ID
     });
     
-    // Check if all 16 categories have been selected
-    if (playerState.selectedCells.length >= 16) {
-      console.log(`GAME OVER: ${playerName} has selected all 16 categories via wildcard`);
-      
-      // Use sanitized channel name for player-specific events
+    // Check if game is over (no more available players)
+    if (availablePlayers.length === 0) {
       const playerChannel = sanitizeChannelName(`room-${roomId}-${playerName}`);
-      console.log(`Sending game-over event on channel: ${playerChannel}`);
-      
       await pusher.trigger(playerChannel, 'game-over', {
-        reason: 'all-categories-selected-via-wildcard'
+        reason: 'no-more-players'
       });
       
       return res.status(200).json({ 
@@ -581,7 +593,8 @@ app.post('/api/use-wildcard', async (req, res) => {
     
     res.json({ 
       success: true, 
-      wildcardMatches: matchIndices
+      wildcardMatches: matchIndices,
+      nextPlayer
     });
   } catch (error) {
     console.error('Error handling wildcard use:', error);

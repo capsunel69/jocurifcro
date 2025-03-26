@@ -205,59 +205,44 @@ function MultiplayerBingoGame() {
         console.log('Wildcard used event received:', {
           playerName: data.playerName,
           wildcardMatches: data.wildcardMatches,
-          totalValidSelections: data.totalValidSelections
+          totalValidSelections: data.totalValidSelections,
+          nextPlayer: data.nextPlayer
         });
 
         if (data.playerName === playerName) {
+          // Handle wildcard matches if any
           if (data.wildcardMatches && data.wildcardMatches.length > 0) {
-            // Filter out categories that have already been selected
-            const newMatches = data.wildcardMatches.filter(
-              matchId => !selectedCells.includes(matchId)
-            );
-            
-            if (newMatches.length > 0) {
-              playSound('wildcard');
-              
-              // Update wildcard matches (for visualization)
-              setWildcardMatches(newMatches);
-              
-              // Add to valid selections for scoring
-              setValidSelections(prev => [...prev, ...newMatches]);
-              
-              // IMPORTANT: Also add to selectedCells for the game end condition
-              setSelectedCells(prev => {
-                const updatedCells = [...prev, ...newMatches];
-                
-                // Check if all 16 categories have been selected - trigger game end
-                if (updatedCells.length >= 16) {
-                  console.log('Game over triggered by wildcard completing all 16 categories');
-                  setIsGameOver(true);
-                  setGameState('finished');
-                  handleGameOver();
-                }
-                
-                return updatedCells;
-              });
-            } else {
-              toast({
-                title: "No New Matches",
-                description: "All matching categories have already been selected.",
-                status: "info",
-                duration: 3000,
-                isClosable: true,
-              });
-            }
-          } else {
-            toast({
-              title: "No Matches Found",
-              description: "There are no matching categories for this player.",
-              status: "info",
-              duration: 3000,
-              isClosable: true,
+            playSound('wildcard');
+            setWildcardMatches(data.wildcardMatches);
+            setValidSelections(prev => [...prev, ...data.wildcardMatches]);
+            setSelectedCells(prev => {
+              const updatedCells = [...prev, ...data.wildcardMatches];
+              if (updatedCells.length >= 16) {
+                setIsGameOver(true);
+                setGameState('finished');
+                handleGameOver();
+              }
+              return updatedCells;
             });
+          }
+
+          // Update used players and current player
+          setUsedPlayers(prev => {
+            const newUsedPlayers = [...prev];
+            if (data.skippedPlayerId && !newUsedPlayers.includes(data.skippedPlayerId)) {
+              newUsedPlayers.push(data.skippedPlayerId);
+            }
+            return newUsedPlayers;
+          });
+
+          // Set next player
+          if (data.nextPlayer) {
+            setCurrentPlayer(data.nextPlayer);
           }
           
           setHasWildcard(false);
+          setTimeRemaining(10); // Reset timer for next player
+          setIsTimerActive(true);
           setIsInteractionDisabled(false);
         }
 
