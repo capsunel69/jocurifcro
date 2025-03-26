@@ -986,7 +986,7 @@ function handleEmptyRoom(roomId) {
   }
 }
 
-// Update the cleanupPlayer function to trigger empty room check
+// Update the cleanupPlayer function to properly reset room state
 function cleanupPlayer(roomId, playerName) {
   const room = activeRooms.get(roomId);
   if (!room) {
@@ -1004,6 +1004,17 @@ function cleanupPlayer(roomId, playerName) {
     room.currentGame.playerStates.delete(playerName);
   }
 
+  // Reset room if insufficient players during game
+  if (room.gameState === 'playing' && room.players.length < 2) {
+    console.log('Resetting room state due to insufficient players');
+    room.gameState = 'waiting';
+    room.currentGame = null;
+    // Reset ready status for remaining players
+    room.players.forEach(player => {
+      player.isReady = false;
+    });
+  }
+
   // Remove from finished players if present
   const finishedKey = `${roomId}-${playerName}`;
   finishedPlayers.delete(finishedKey);
@@ -1011,7 +1022,7 @@ function cleanupPlayer(roomId, playerName) {
   // Add to disconnected players set
   disconnectedPlayers.add(`${roomId}-${playerName}`);
 
-  console.log(`Cleanup complete. Remaining players: ${room.players.map(p => p.name).join(', ')}`);
+
 
   // Clean up player status
   playerStatuses.delete(`${roomId}-${playerName}`);
