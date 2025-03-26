@@ -238,6 +238,16 @@ function MultiplayerBingoGame() {
               }
               return updatedCells;
             });
+          } else {
+            // Add notification for no matches found
+            toast({
+              title: "No Matches Found",
+              description: "Your wildcard didn't find any matches. Better luck next time... but not this game!",
+              status: "warning",
+              duration: 3000,
+              isClosable: true,
+              position: "top"
+            });
           }
 
           // Update used players and current player
