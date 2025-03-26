@@ -821,6 +821,9 @@ function MultiplayerBingoGame() {
 
   // Add this effect near the other useEffect hooks
   useEffect(() => {
+    let timeoutId;
+    let isHidden = false;
+
     const sendExitRequest = () => {
       if (roomId && playerName) {
         const data = new Blob(
@@ -831,34 +834,55 @@ function MultiplayerBingoGame() {
       }
     };
 
-    // Handle all possible exit scenarios
+    // Handle visibility change with a delay to differentiate between
+    // app switching and actual closure
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        sendExitRequest();
+        isHidden = true;
+        // Set a timeout - if we don't become visible again in 1 second,
+        // assume the tab/app was closed
+        timeoutId = setTimeout(() => {
+          if (isHidden) {
+            sendExitRequest();
+          }
+        }, 1000);
+      } else {
+        isHidden = false;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
       }
     };
 
-    const handlePageHide = () => {
-      sendExitRequest();
+    // These events specifically handle actual page/app closure
+    const handlePageHide = (e) => {
+      // Only trigger on actual page unload, not just visibility change
+      if (e.persisted === false) {
+        sendExitRequest();
+      }
     };
 
     const handleBeforeUnload = () => {
       sendExitRequest();
     };
 
-    // Add all relevant event listeners
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('unload', handleBeforeUnload);
 
-    // Cleanup
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('unload', handleBeforeUnload);
-      sendExitRequest(); // Also try on component unmount
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      // Only send exit request if we're actually leaving the page
+      if (isHidden) {
+        sendExitRequest();
+      }
     };
   }, [roomId, playerName]);
 
@@ -1276,6 +1300,25 @@ function MultiplayerBingoGame() {
                     </HStack>
                   ))}
                 </VStack>
+                
+                {/* Add waiting message for non-host players */}
+                {!players.find(p => p.name === playerName)?.isHost && (
+                  <Box
+                    mt={4}
+                    p={4}
+                    bg="rgba(0, 0, 0, 0.3)"
+                    borderRadius="md"
+                    border="1px solid rgba(255, 255, 255, 0.1)"
+                  >
+                    <Text
+                      color="gray.300"
+                      textAlign="center"
+                      fontSize="md"
+                    >
+                      Waiting for host to start the game...
+                    </Text>
+                  </Box>
+                )}
                 
                 {players.find(p => p.name === playerName)?.isHost && (
                   <Box w="full" pt={4}>
