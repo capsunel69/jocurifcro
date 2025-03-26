@@ -19,6 +19,7 @@ import MpGameControls from '../components/bingoMultiplayer/mpGameControls'
 import MpTimer from '../components/bingoMultiplayer/mpTimer'
 import MpGameModeSelect from '../components/bingoMultiplayer/mpGameModeSelect'
 import pusher from '../services/pusher'
+import { FaCopy } from 'react-icons/fa'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -102,6 +103,8 @@ function MultiplayerBingoGame() {
 
   const [isTimerActive, setIsTimerActive] = useState(false)
   const [currentCardId, setCurrentCardId] = useState(null)
+
+  const [isLinkCopied, setIsLinkCopied] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -946,6 +949,21 @@ function MultiplayerBingoGame() {
     setAllPlayersFinished(allFinished);
   }, [players, finishedPlayers]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const rid = params.get('roomId');
+    if (rid) {
+      setInputRoomId(rid);
+    }
+  }, []);
+
+  const getShareableLink = () => {
+    const baseUrl = window.location.origin;
+    const link = `${baseUrl}/multiplayer-bingo?roomId=${roomId}`;
+    console.log('Generated link:', link); // Debug log
+    return link;
+  };
+
   if (gameState === 'init') {
     return (
       <Box
@@ -1048,6 +1066,9 @@ function MultiplayerBingoGame() {
                     boxShadow: 'none'
                   }}
                   leftIcon={<MdShuffle size="20px" />}
+                  isDisabled={inputRoomId.length > 0}
+                  opacity={inputRoomId.length > 0 ? 0.5 : 1}
+                  cursor={inputRoomId.length > 0 ? 'not-allowed' : 'pointer'}
                 >
                   Create New Room
                 </Button>
@@ -1148,13 +1169,82 @@ function MultiplayerBingoGame() {
               maxW="650px"
             >
               <VStack spacing={6}>
-                <Text 
-                  color="white"
-                  fontSize="xl"
-                  fontWeight="bold"
-                >
-                  Room ID: {roomId}
-                </Text>
+                <HStack w="full" justify="space-between" align="center">
+                  <Text 
+                    color="white"
+                    fontSize="xl"
+                    fontWeight="bold"
+                  >
+                    Room ID: {roomId}
+                  </Text>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    colorScheme={isLinkCopied ? "green" : "gray"}
+                    onClick={async () => {
+                      try {
+                        const link = getShareableLink();
+                        
+                        // Try modern clipboard API first
+                        if (navigator.clipboard && window.isSecureContext) {
+                          await navigator.clipboard.writeText(link);
+                        } else {
+                          // Fallback for older browsers or non-HTTPS
+                          const textArea = document.createElement("textarea");
+                          textArea.value = link;
+                          textArea.style.position = "fixed";
+                          textArea.style.left = "-999999px";
+                          textArea.style.top = "-999999px";
+                          document.body.appendChild(textArea);
+                          textArea.focus();
+                          textArea.select();
+                          
+                          try {
+                            document.execCommand('copy');
+                            textArea.remove();
+                          } catch (err) {
+                            console.error('Fallback: Oops, unable to copy', err);
+                            textArea.remove();
+                            throw new Error('Copy failed');
+                          }
+                        }
+                        
+                        // If we got here, the copy worked
+                        setIsLinkCopied(true);
+                        toast({
+                          title: "Link Copied!",
+                          description: "Room link has been copied to clipboard",
+                          status: "success",
+                          duration: 2000,
+                          isClosable: true,
+                          position: "top"
+                        });
+                        setTimeout(() => setIsLinkCopied(false), 2000);
+                      } catch (error) {
+                        console.error('Failed to copy:', error);
+                        toast({
+                          title: "Failed to copy",
+                          description: "Please try again",
+                          status: "error",
+                          duration: 2000,
+                          isClosable: true,
+                          position: "top"
+                        });
+                      }
+                    }}
+                    leftIcon={<FaCopy />}
+                    transition="all 0.2s"
+                    _hover={{
+                      bg: 'rgba(255, 255, 255, 0.1)'
+                    }}
+                    opacity="0.8"
+                    color="white"
+                    borderWidth="1px"
+                    borderColor="rgba(255, 255, 255, 0.2)"
+                  >
+                    {isLinkCopied ? "Copied Link!" : "Share Room"}
+                  </Button>
+                </HStack>
                 
                 <Text 
                   color="gray.300"
