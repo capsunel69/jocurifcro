@@ -437,11 +437,18 @@ function MultiplayerBingoGame() {
       channel.bind('player-status-changed', (data) => {
         console.log('Status change event received:', data);
         if (data.allStatuses) {
-          setPlayerStatuses(data.allStatuses);
+          // Ensure current player is never shown as away in their own view
+          const updatedStatuses = {
+            ...data.allStatuses,
+            [playerName]: data.allStatuses[playerName] === 'away' ? 'active' : data.allStatuses[playerName]
+          };
+          setPlayerStatuses(updatedStatuses);
         } else {
           setPlayerStatuses(prev => ({
             ...prev,
-            [data.playerName]: data.status
+            [data.playerName]: data.playerName === playerName ? 
+              (data.status === 'away' ? 'active' : data.status) : 
+              data.status
           }));
         }
       });
@@ -897,6 +904,14 @@ function MultiplayerBingoGame() {
 
         if (!response.ok) {
           throw new Error('Failed to update status');
+        }
+
+        // Force update local state to ensure current player is never shown as away
+        if (status === 'active') {
+          setPlayerStatuses(prev => ({
+            ...prev,
+            [playerName]: 'active'
+          }));
         }
       } catch (error) {
         console.error('Error updating status:', error);
@@ -1706,8 +1721,8 @@ function MultiplayerBingoGame() {
                   else if (rank === 2) medal = "🥈";
                   else if (rank === 3) medal = "🥉";
 
-                  // Get player status
-                  const playerStatus = playerStatuses[player.name];
+                  // Get player status - but force 'active' if it's the current player viewing
+                  const playerStatus = isCurrentPlayer ? 'active' : playerStatuses[player.name];
                   
                   return (
                     <HStack
@@ -1737,7 +1752,7 @@ function MultiplayerBingoGame() {
                       </HStack>
                       <HStack spacing={3}>
                         <Text color="white" fontWeight="bold">{score} matches</Text>
-                        {playerStatus === 'away' ? (
+                        {playerStatus === 'away' && !isCurrentPlayer ? (
                           <Badge colorScheme="yellow">Away</Badge>
                         ) : finishedPlayers.includes(player.name) ? (
                           <Badge colorScheme="green">Finished</Badge>
