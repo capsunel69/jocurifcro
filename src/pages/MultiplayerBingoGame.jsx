@@ -1456,7 +1456,7 @@ function MultiplayerBingoGame() {
                   onClick={handleReadyToggle}
                   w="full"
                 >
-                  {isReady ? "Ready!" : "Click when Ready"}
+                  {isReady ? "I'm not Ready!" : "Click when Ready"}
                 </Button>
                 
                 {/* Add Exit Room button here */}
