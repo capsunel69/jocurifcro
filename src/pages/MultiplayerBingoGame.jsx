@@ -46,7 +46,7 @@ function MultiplayerBingoGame() {
   const [isInteractionDisabled, setIsInteractionDisabled] = useState(false)
   const [playerScores, setPlayerScores] = useState({})
   const [finishedPlayers, setFinishedPlayers] = useState([])
-  const [isHost, setIsHost] = useState(false)
+  const [isHost, setIsHost] = useState(true)
   const [allPlayersFinished, setAllPlayersFinished] = useState(false)
   const [hasFinished, setHasFinished] = useState(false)
 
@@ -111,6 +111,9 @@ function MultiplayerBingoGame() {
 
   // Add these new states in your component
   const [playerStatuses, setPlayerStatuses] = useState({});
+
+  // Add this state near your other state declarations
+  const [hasHost, setHasHost] = useState(true)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -361,10 +364,24 @@ function MultiplayerBingoGame() {
         });
       })
 
-      // Add/update player-left event handler
+      // Update the player-left event handler
       channel.bind('player-left', (data) => {
         console.log('Player left event received:', data);
         setPlayers(data.remainingPlayers || []);
+        
+        // Check if there's still a host in the remaining players
+        const hostExists = data.remainingPlayers.some(player => player.isHost);
+        setHasHost(hostExists);
+        
+        if (!hostExists) {
+          toast({
+            title: "Host Left",
+            description: "The host has left the room. Please exit and join a new game.",
+            status: "error",
+            duration: null,
+            isClosable: true,
+          });
+        }
         
         if (data.remainingPlayers.length < 2) {
           setGameState('waiting');
@@ -375,7 +392,7 @@ function MultiplayerBingoGame() {
             duration: 5000,
           });
         }
-      });
+      })
 
       // Add/update room-closed event handler
       channel.bind('room-closed', (data) => {
@@ -1314,6 +1331,30 @@ function MultiplayerBingoGame() {
             >
               Waiting Room
             </Heading>
+            
+            {!hasHost && (
+              <Box
+                bg="red.500"
+                color="white"
+                p={4}
+                borderRadius="md"
+                width="100%"
+                textAlign="center"
+              >
+                <VStack spacing={4}>
+                  <Text fontWeight="bold">
+                    The host has left the room
+                  </Text>
+                  <Button
+                    colorScheme="white"
+                    variant="outline"
+                    onClick={handleExitToMenu}
+                  >
+                    Exit to Menu
+                  </Button>
+                </VStack>
+              </Box>
+            )}
             
             <Box
               bg="rgba(0, 0, 0, 0.4)"

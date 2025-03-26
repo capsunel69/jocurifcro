@@ -76,6 +76,9 @@ const notificationsSent = new Set();
 // First, add this near the top with other state tracking
 const playerStatuses = new Map(); // Add this to track statuses persistently
 
+// Add this near the top with other state tracking
+const roomTimeouts = new Map(); // Track timeouts for empty rooms
+
 // Add this function to handle connection status
 function updatePlayerConnection(roomId, playerName, isConnected) {
   const key = `${roomId}-${playerName}`;
@@ -940,7 +943,45 @@ app.post('/api/get-player-state', async (req, res) => {
   }
 });
 
-// Update the cleanup functions to handle status cleanup
+// Add this helper function to check and cleanup empty rooms
+function handleEmptyRoom(roomId) {
+  const room = activeRooms.get(roomId);
+  
+  // Clear any existing timeout first
+  if (roomTimeouts.has(roomId)) {
+    clearTimeout(roomTimeouts.get(roomId));
+    roomTimeouts.delete(roomId);
+  }
+  
+  if (!room || room.players.length === 0) {
+    // Set a timeout to close the room if it remains empty
+    const timeoutId = setTimeout(async () => {
+      console.log(`Closing empty room ${roomId} after timeout`);
+      
+      try {
+        // Double check that the room is still empty before closing
+        const currentRoom = activeRooms.get(roomId);
+        if (!currentRoom || currentRoom.players.length === 0) {
+          // Clean up the room
+          cleanupRoom(roomId);
+          roomTimeouts.delete(roomId);
+          
+          // Notify any lingering connections that the room is closed
+          await pusher.trigger(`room-${roomId}`, 'room-closed', {
+            message: 'Room closed due to inactivity',
+            timestamp: Date.now()
+          });
+        }
+      } catch (error) {
+        console.error('Error cleaning up empty room:', error);
+      }
+    }, 5000); // 5 seconds timeout
+    
+    roomTimeouts.set(roomId, timeoutId);
+  }
+}
+
+// Update the cleanupPlayer function to trigger empty room check
 function cleanupPlayer(roomId, playerName) {
   const room = activeRooms.get(roomId);
   if (!room) {
@@ -969,9 +1010,21 @@ function cleanupPlayer(roomId, playerName) {
 
   // Clean up player status
   playerStatuses.delete(`${roomId}-${playerName}`);
+
+  // Check if room is empty and start timeout if needed
+  if (room.players.length === 0) {
+    handleEmptyRoom(roomId);
+  }
 }
 
+// Update the cleanupRoom function to clear any pending timeouts
 function cleanupRoom(roomId) {
+  // Clear any pending timeout for this room
+  if (roomTimeouts.has(roomId)) {
+    clearTimeout(roomTimeouts.get(roomId));
+    roomTimeouts.delete(roomId);
+  }
+
   const room = activeRooms.get(roomId);
   if (room) {
     // Clear all finished players for this room
