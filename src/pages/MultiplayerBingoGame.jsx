@@ -819,26 +819,46 @@ function MultiplayerBingoGame() {
     }
   };
 
-  // Add new effect to handle page unload/exit
+  // Add this effect near the other useEffect hooks
   useEffect(() => {
-    const handleBeforeUnload = async () => {
+    const sendExitRequest = () => {
       if (roomId && playerName) {
-        try {
-          await fetch(`${API_BASE_URL}/api/exit-room`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ roomId, playerName })
-          });
-        } catch (error) {
-          console.error('Error exiting room:', error);
-        }
+        const data = new Blob(
+          [JSON.stringify({ roomId, playerName })], 
+          { type: 'application/json' }
+        );
+        navigator.sendBeacon(`${API_BASE_URL}/api/exit-room`, data);
       }
     };
 
+    // Handle all possible exit scenarios
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        sendExitRequest();
+      }
+    };
+
+    const handlePageHide = () => {
+      sendExitRequest();
+    };
+
+    const handleBeforeUnload = () => {
+      sendExitRequest();
+    };
+
+    // Add all relevant event listeners
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('unload', handleBeforeUnload);
+
+    // Cleanup
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      handleBeforeUnload();
+      window.removeEventListener('unload', handleBeforeUnload);
+      sendExitRequest(); // Also try on component unmount
     };
   }, [roomId, playerName]);
 
