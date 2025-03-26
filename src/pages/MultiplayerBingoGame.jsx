@@ -437,18 +437,22 @@ function MultiplayerBingoGame() {
       channel.bind('player-status-changed', (data) => {
         console.log('Status change event received:', data);
         if (data.allStatuses) {
-          // Ensure current player is never shown as away in their own view
-          const updatedStatuses = {
-            ...data.allStatuses,
-            [playerName]: data.allStatuses[playerName] === 'away' ? 'active' : data.allStatuses[playerName]
-          };
-          setPlayerStatuses(updatedStatuses);
+          // Process statuses with timestamps to handle race conditions
+          setPlayerStatuses(prev => {
+            const newStatuses = { ...prev };
+            Object.entries(data.allStatuses).forEach(([pName, statusData]) => {
+              // Only update if the new status is more recent
+              const prevTimestamp = prev[pName]?.timestamp || 0;
+              if (statusData.timestamp > prevTimestamp) {
+                newStatuses[pName] = statusData.status;
+              }
+            });
+            return newStatuses;
+          });
         } else {
           setPlayerStatuses(prev => ({
             ...prev,
-            [data.playerName]: data.playerName === playerName ? 
-              (data.status === 'away' ? 'active' : data.status) : 
-              data.status
+            [data.playerName]: data.status
           }));
         }
       });
@@ -870,73 +874,52 @@ function MultiplayerBingoGame() {
   // Update the useEffect that handles visibility and disconnection
   useEffect(() => {
     let timeoutId;
-    let isClosing = false;
-
-    // Handle actual page/browser closure
-    const handleBeforeUnload = () => {
-      isClosing = true;
-      if (roomId && playerName) {
-        const data = new Blob(
-          [JSON.stringify({ roomId, playerName })], 
-          { type: 'application/json' }
-        );
-        navigator.sendBeacon(`${API_BASE_URL}/api/exit-room`, data);
-      }
-    };
-
-    // Handle visibility change
+    
     const handleVisibilityChange = async () => {
       if (!roomId || !playerName) return;
 
       const status = document.visibilityState === 'hidden' ? 'away' : 'active';
       console.log(`Visibility changed to ${status} for ${playerName}`);
 
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/update-status`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            roomId, 
-            playerName,
-            status 
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to update status');
-        }
-
-        // Force update local state to ensure current player is never shown as away
-        if (status === 'active') {
-          setPlayerStatuses(prev => ({
-            ...prev,
-            [playerName]: 'active'
-          }));
-        }
-      } catch (error) {
-        console.error('Error updating status:', error);
+      // Clear any pending status updates
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
-    };
 
-    // Handle actual page hide/unload
-    const handlePageHide = (e) => {
-      if (!e.persisted) {
-        // Page is being fully unloaded
-        isClosing = true;
-        handleBeforeUnload();
-      }
+      // Add a small delay for status updates to prevent rapid toggling
+      timeoutId = setTimeout(async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/update-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              roomId, 
+              playerName,
+              status 
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to update status');
+          }
+
+          // Update local state only after successful server update
+          if (status === 'active') {
+            setPlayerStatuses(prev => ({
+              ...prev,
+              [playerName]: 'active'
+            }));
+          }
+        } catch (error) {
+          console.error('Error updating status:', error);
+        }
+      }, 500); // 500ms delay to debounce status updates
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('pagehide', handlePageHide);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('unload', handleBeforeUnload);
-
+    
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('pagehide', handlePageHide);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('unload', handleBeforeUnload);
       if (timeoutId) {
         clearTimeout(timeoutId);
       }

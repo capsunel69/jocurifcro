@@ -1120,7 +1120,7 @@ app.post('/api/skip-player', async (req, res) => {
   }
 });
 
-// Update the update-status endpoint to be more robust
+// Update the update-status endpoint to handle mobile cases better
 app.post('/api/update-status', async (req, res) => {
   const { roomId, playerName, status } = req.body;
   const room = activeRooms.get(roomId);
@@ -1130,30 +1130,40 @@ app.post('/api/update-status', async (req, res) => {
   }
 
   try {
-    console.log(`Updating status for ${playerName} to ${status} in room ${roomId}`); // Debug log
+    console.log(`Updating status for ${playerName} to ${status} in room ${roomId}`);
     
-    // Update both the persistent map and the room state
+    // Add timestamp to status updates to handle race conditions
     const key = `${roomId}-${playerName}`;
-    playerStatuses.set(key, status);
+    const timestamp = Date.now();
+    
+    playerStatuses.set(key, {
+      status,
+      timestamp
+    });
     
     const player = room.players.find(p => p.name === playerName);
     if (player) {
       player.status = status;
+      player.statusTimestamp = timestamp;
     }
 
     // Get current statuses for all players
     const currentStatuses = {};
     room.players.forEach(p => {
       const statusKey = `${roomId}-${p.name}`;
-      currentStatuses[p.name] = playerStatuses.get(statusKey) || 'active';
+      const playerStatus = playerStatuses.get(statusKey);
+      currentStatuses[p.name] = {
+        status: playerStatus?.status || 'active',
+        timestamp: playerStatus?.timestamp || Date.now()
+      };
     });
 
-    // Notify other players of status change with all current statuses
+    // Notify other players with timestamps
     await pusher.trigger(`room-${roomId}`, 'player-status-changed', {
       playerName,
       status,
       allStatuses: currentStatuses,
-      timestamp: Date.now()
+      timestamp
     });
     
     res.json({ success: true });
@@ -1195,7 +1205,7 @@ app.post('/api/toggle-ready', async (req, res) => {
   }
 });
 
-// Add new endpoint to handle player kicks
+// Update the kick-player endpoint to be more robust
 app.post('/api/kick-player', async (req, res) => {
   const { roomId, playerName, kickedPlayerName } = req.body;
   console.log(`\n=== Attempting to kick player ${kickedPlayerName} from room ${roomId} ===`);
@@ -1221,17 +1231,18 @@ app.post('/api/kick-player', async (req, res) => {
       return res.status(404).json({ error: 'Player not found in room' });
     }
 
-    // First notify the kicked player
-    console.log(`Notifying kicked player ${kickedPlayerName}`);
-    await pusher.trigger(`room-${roomId}-${kickedPlayerName}`, 'force-redirect', {
-      message: 'You have been kicked from the room',
-      timestamp: Date.now()
-    });
+    try {
+      // First notify the kicked player
+      console.log(`Notifying kicked player ${kickedPlayerName}`);
+      await pusher.trigger(`room-${roomId}-${kickedPlayerName}`, 'force-redirect', {
+        message: 'You have been kicked from the room',
+        timestamp: Date.now()
+      });
+    } catch (error) {
+      console.log('Failed to notify kicked player, continuing with kick process');
+    }
 
-    // Small delay to ensure notification is sent
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // Then clean up the player
+    // Clean up the player immediately, don't wait for notification
     console.log('Cleaning up kicked player...');
     cleanupPlayer(roomId, kickedPlayerName);
 
@@ -1241,7 +1252,7 @@ app.post('/api/kick-player', async (req, res) => {
       resetRoom(roomId);
     }
 
-    // Finally notify remaining players
+    // Notify remaining players
     console.log('Notifying remaining players...');
     await pusher.trigger(`room-${roomId}`, 'player-left', {
       playerName: kickedPlayerName,
@@ -1255,10 +1266,13 @@ app.post('/api/kick-player', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Error during kick process:', error);
-    res.status(500).json({ 
-      error: 'Failed to kick player',
-      details: error.message 
-    });
+    // Even if there's an error, try to clean up the player
+    try {
+      cleanupPlayer(roomId, kickedPlayerName);
+    } catch (cleanupError) {
+      console.error('Additional error during cleanup:', cleanupError);
+    }
+    res.status(500).json({ error: 'Failed to kick player' });
   }
 });
 
