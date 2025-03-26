@@ -871,55 +871,74 @@ function MultiplayerBingoGame() {
     }
   };
 
-  // Update the useEffect that handles visibility and disconnection
+  // Add this effect to handle browser/tab closure and visibility changes
   useEffect(() => {
+    if (!roomId || !playerName) return;
+
     let timeoutId;
-    
+    let isClosing = false;
+
+    // Handle actual page/browser closure
+    const handleBeforeUnload = () => {
+      isClosing = true;
+      // Use sendBeacon for more reliable delivery during page unload
+      navigator.sendBeacon(
+        `${API_BASE_URL}/api/exit-room`,
+        JSON.stringify({ roomId, playerName })
+      );
+    };
+
+    // Handle visibility change
     const handleVisibilityChange = async () => {
-      if (!roomId || !playerName) return;
-
-      const status = document.visibilityState === 'hidden' ? 'away' : 'active';
-      console.log(`Visibility changed to ${status} for ${playerName}`);
-
-      // Clear any pending status updates
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-
-      // Add a small delay for status updates to prevent rapid toggling
-      timeoutId = setTimeout(async () => {
-        try {
-          const response = await fetch(`${API_BASE_URL}/api/update-status`, {
+      if (document.visibilityState === 'hidden' && !isClosing) {
+        // User switched tabs or minimized, but didn't close
+        // We can optionally notify other players that this player is "away"
+        if (roomId && playerName) {
+          fetch(`${API_BASE_URL}/api/update-status`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
               roomId, 
               playerName,
-              status 
+              status: 'away'
             })
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to update status');
-          }
-
-          // Update local state only after successful server update
-          if (status === 'active') {
-            setPlayerStatuses(prev => ({
-              ...prev,
-              [playerName]: 'active'
-            }));
-          }
-        } catch (error) {
-          console.error('Error updating status:', error);
+          }).catch(console.error);
         }
-      }, 500); // 500ms delay to debounce status updates
+      } else if (document.visibilityState === 'visible') {
+        // User came back
+        if (roomId && playerName) {
+          fetch(`${API_BASE_URL}/api/update-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              roomId, 
+              playerName,
+              status: 'active'
+            })
+          }).catch(console.error);
+        }
+      }
+    };
+
+    // Handle actual page hide/unload
+    const handlePageHide = (e) => {
+      if (!e.persisted) {
+        // Page is being fully unloaded
+        isClosing = true;
+        handleBeforeUnload();
+      }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('unload', handleBeforeUnload);
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('unload', handleBeforeUnload);
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
@@ -1310,7 +1329,7 @@ function MultiplayerBingoGame() {
                 <HStack w="full" justify="space-between" align="center">
                   <Text 
                     color="white"
-                    fontSize="xl"
+                    fontSize="l"
                     fontWeight="bold"
                   >
                     Room ID: {roomId}

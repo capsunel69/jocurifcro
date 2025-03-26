@@ -787,53 +787,71 @@ function resetRoom(roomId) {
   }
 }
 
-// Update the player-exit endpoint
-app.post('/api/player-exit', async (req, res) => {
-  const { roomId, playerName } = req.body;
-  console.log(`\n=== Player ${playerName} exiting room ${roomId} ===`);
-
+// Update the exit-room endpoint to be more robust
+app.post('/api/exit-room', async (req, res) => {
+  // Support both JSON and raw body for sendBeacon compatibility
+  let roomId, playerName;
+  
   try {
+    if (req.headers['content-type'] === 'application/json') {
+      ({ roomId, playerName } = req.body);
+    } else {
+      const rawBody = await new Promise((resolve) => {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => resolve(body));
+      });
+      ({ roomId, playerName } = JSON.parse(rawBody));
+    }
+
+    console.log(`\n=== Player ${playerName} exiting room ${roomId} ===`);
+    
     const room = activeRooms.get(roomId);
     if (!room) {
+      console.log('Room not found');
       return res.status(404).json({ error: 'Room not found' });
     }
 
-    updatePlayerConnection(roomId, playerName, false);
-    
-    const isHost = room.players[0]?.name === playerName;
-    console.log(`${isHost ? 'Host' : 'Regular'} player ${playerName} is exiting`);
+    const player = room.players.find(p => p.name === playerName);
+    if (!player) {
+      console.log('Player not found in room');
+      return res.status(404).json({ error: 'Player not found' });
+    }
 
-    // Clean up the exiting player
+    // Clean up the player
     cleanupPlayer(roomId, playerName);
 
-    if (isHost) {
-      console.log('Host is exiting, closing room');
-      activeRooms.delete(roomId);
-      await pusher.trigger(`room-${roomId}`, 'room-closed', {
-        reason: 'Host left',
-        timestamp: Date.now()
-      });
-    } else {
-      // If in a game and less than 2 players remain, reset the room
-      if (room.gameState === 'playing' && room.players.length < 2) {
-        console.log('Resetting game due to insufficient players');
-        resetRoom(roomId);
-      }
+    // If in a game and less than 2 players remain, reset the room
+    if (room.gameState === 'playing' && room.players.length < 2) {
+      console.log('Resetting game due to insufficient players');
+      resetRoom(roomId);
+    }
 
+    try {
       // Notify remaining players
       await pusher.trigger(`room-${roomId}`, 'player-left', {
         playerName,
         remainingPlayers: room.players,
         gameState: room.gameState,
+        wasDisconnected: true,
         timestamp: Date.now()
       });
+    } catch (error) {
+      console.error('Error notifying remaining players:', error);
+      // Continue with exit even if notification fails
     }
 
-    console.log('=== Player exit processed successfully ===');
+    console.log('=== Exit process completed successfully ===');
     res.json({ success: true });
   } catch (error) {
-    console.error('Error handling player exit:', error);
-    res.status(500).json({ error: 'Failed to process player exit' });
+    console.error('Error during exit process:', error);
+    // Try to send response if we can
+    try {
+      res.status(500).json({ error: 'Failed to exit room' });
+    } catch (e) {
+      // Response might have already been sent or connection closed
+      console.error('Could not send error response:', e);
+    }
   }
 });
 
