@@ -95,8 +95,16 @@ function updatePlayerConnection(roomId, playerName, isConnected) {
 }
 
 // Helper function to get a random card
-function getRandomCard() {
-  return gameCards[Math.floor(Math.random() * gameCards.length)];
+function getRandomCard(room) {
+  const availableCards = gameCards.filter(card => !room.usedCards.includes(card.id));
+  
+  if (availableCards.length === 0) {
+    // If all cards have been used, reset the used cards list
+    room.usedCards = [];
+    return gameCards[Math.floor(Math.random() * gameCards.length)];
+  }
+  
+  return availableCards[Math.floor(Math.random() * availableCards.length)];
 }
 
 // Helper function to format categories
@@ -129,7 +137,8 @@ app.post('/api/create-room', (req, res) => {
   activeRooms.set(roomId, {
     players: [{ name: playerName, isHost: true }],
     gameState: 'waiting',
-    currentGame: null
+    currentGame: null,
+    usedCards: []
   });
   
   res.json({ roomId });
@@ -199,7 +208,15 @@ app.post('/api/start-game', async (req, res) => {
 
   try {
     // Get random game card
-    const gameCard = getRandomCard();
+    const gameCard = getRandomCard(room);
+    
+    // Add the card to the used cards list
+    room.usedCards.push(gameCard.id);
+    
+    // Keep only the last 10 used cards
+    if (room.usedCards.length > 10) {
+      room.usedCards.shift();
+    }
     
     // Clear finished players for this room
     for (const key of finishedPlayers.keys()) {

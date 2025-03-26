@@ -101,6 +101,7 @@ function MultiplayerBingoGame() {
   };
 
   const [isTimerActive, setIsTimerActive] = useState(false)
+  const [currentCardId, setCurrentCardId] = useState(null)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -137,6 +138,9 @@ function MultiplayerBingoGame() {
         setCurrentPlayer(data.gameData.currentPlayer);
         setMaxAvailablePlayers(data.gameData.maxPlayers);
         setGameState('playing');
+        
+        // Set the current card ID
+        setCurrentCardId(data.gameData.currentCard);
         
         // Reset timer
         setTimeRemaining(10);
@@ -915,6 +919,33 @@ function MultiplayerBingoGame() {
     }
   };
 
+  // First, add this debug useEffect
+  useEffect(() => {
+    console.log('Game state debug:', {
+      players: players.map(p => p.name),
+      finishedPlayers,
+      allPlayersFinished,
+      isHost,
+      gameState
+    });
+  }, [players, finishedPlayers, allPlayersFinished, isHost, gameState]);
+
+  // Update the useEffect that checks for all players finished
+  useEffect(() => {
+    const allFinished = players.length > 0 && 
+      players.every(player => finishedPlayers.includes(player.name));
+    
+    console.log('Checking if all players finished:', {
+      playersCount: players.length,
+      finishedCount: finishedPlayers.length,
+      allFinished,
+      players: players.map(p => p.name),
+      finishedPlayers
+    });
+
+    setAllPlayersFinished(allFinished);
+  }, [players, finishedPlayers]);
+
   if (gameState === 'init') {
     return (
       <Box
@@ -1248,6 +1279,23 @@ function MultiplayerBingoGame() {
                 Players Used: {usedPlayers?.length || 0} / {maxAvailablePlayers}
               </Text>
             </Box>
+
+            {/* Display the card ID */}
+            <Box
+              position="absolute"
+              bottom={2}
+              right={2}
+              p={1}
+              bg="rgba(0, 0, 0, 0.5)"
+              borderRadius="md"
+            >
+              <Text
+                fontSize="xs"
+                color="gray.300"
+              >
+                Card ID: {currentCardId || 'N/A'}
+              </Text>
+            </Box>
           </VStack>
         </Container>
       </Box>
@@ -1422,22 +1470,25 @@ function MultiplayerBingoGame() {
                     onClick={handlePlayAgain}
                     bg="linear-gradient(135deg, #3182ce 0%, #2c5282 100%)"
                     w="full"
-                    isDisabled={!allPlayersFinished}
+                    isDisabled={!allPlayersFinished || players.some(p => !finishedPlayers.includes(p.name))}
+                    opacity={allPlayersFinished && players.every(p => finishedPlayers.includes(p.name)) ? 1 : 0.5}
                     _hover={{
                       transform: allPlayersFinished ? 'translateY(-2px)' : 'none',
                       boxShadow: allPlayersFinished ? '0 4px 12px rgba(49, 130, 206, 0.4)' : 'none'
                     }}
                   >
-                    Start New Game
+                    {allPlayersFinished && players.every(p => finishedPlayers.includes(p.name)) 
+                      ? 'Start New Game' 
+                      : 'Waiting for players...'}
                   </Button>
-                  {!allPlayersFinished && (
+                  {(!allPlayersFinished || players.some(p => !finishedPlayers.includes(p.name))) && (
                     <Text
                       color="gray.400"
                       fontSize="sm"
                       textAlign="center"
                       mt={2}
                     >
-                      All players must finish before starting a new game
+                      Waiting...
                     </Text>
                   )}
                 </Box>
