@@ -124,7 +124,12 @@ function sanitizeChannelName(channelName) {
 // Add this helper function near other helper functions
 function cleanupPlayer(roomId, playerName) {
   const room = activeRooms.get(roomId);
-  if (!room) return;
+  if (!room) {
+    console.log(`Room ${roomId} not found during cleanup`);
+    return;
+  }
+
+  console.log(`Cleaning up player ${playerName} from room ${roomId}`);
 
   // Remove player from the room's players array
   room.players = room.players.filter(p => p.name !== playerName);
@@ -134,11 +139,14 @@ function cleanupPlayer(roomId, playerName) {
     room.currentGame.playerStates.delete(playerName);
   }
 
+  // Remove from finished players if present
+  const finishedKey = `${roomId}-${playerName}`;
+  finishedPlayers.delete(finishedKey);
+
   // Add to disconnected players set
   disconnectedPlayers.add(`${roomId}-${playerName}`);
 
-  console.log(`Cleaned up player ${playerName} from room ${roomId}`);
-  console.log(`Remaining players: ${room.players.map(p => p.name).join(', ')}`);
+  console.log(`Cleanup complete. Remaining players: ${room.players.map(p => p.name).join(', ')}`);
 }
 
 app.post('/api/create-room', (req, res) => {
@@ -1111,30 +1119,51 @@ app.post('/api/toggle-ready', async (req, res) => {
 // Add new endpoint to handle player kicks
 app.post('/api/kick-player', async (req, res) => {
   const { roomId, playerName, kickedPlayerName } = req.body;
-  const room = activeRooms.get(roomId);
+  console.log(`\n=== Attempting to kick player ${kickedPlayerName} from room ${roomId} ===`);
   
-  if (!room) {
-    return res.status(404).json({ error: 'Room not found' });
-  }
-
-  // Verify that the request is coming from the host
-  const isHost = room.players.find(p => p.name === playerName)?.isHost;
-  if (!isHost) {
-    return res.status(403).json({ error: 'Only the host can kick players' });
-  }
-
   try {
-    // Notify the kicked player
+    const room = activeRooms.get(roomId);
+    if (!room) {
+      console.log('Room not found');
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    // Verify that the request is coming from the host
+    const isHost = room.players.find(p => p.name === playerName)?.isHost;
+    if (!isHost) {
+      console.log(`Kick attempt rejected: ${playerName} is not the host`);
+      return res.status(403).json({ error: 'Only the host can kick players' });
+    }
+
+    // Verify kicked player exists in the room
+    const kickedPlayer = room.players.find(p => p.name === kickedPlayerName);
+    if (!kickedPlayer) {
+      console.log(`Kicked player ${kickedPlayerName} not found in room`);
+      return res.status(404).json({ error: 'Player not found in room' });
+    }
+
+    // First notify the kicked player
+    console.log(`Notifying kicked player ${kickedPlayerName}`);
     await pusher.trigger(`room-${roomId}-${kickedPlayerName}`, 'force-redirect', {
       message: 'You have been kicked from the room',
       timestamp: Date.now()
     });
 
-    // Use existing exit logic
-    updatePlayerConnection(roomId, kickedPlayerName, false);
+    // Small delay to ensure notification is sent
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Then clean up the player
+    console.log('Cleaning up kicked player...');
     cleanupPlayer(roomId, kickedPlayerName);
 
-    // Notify remaining players
+    // If in a game and less than 2 players remain, reset the room
+    if (room.gameState === 'playing' && room.players.length < 2) {
+      console.log('Resetting game due to insufficient players');
+      resetRoom(roomId);
+    }
+
+    // Finally notify remaining players
+    console.log('Notifying remaining players...');
     await pusher.trigger(`room-${roomId}`, 'player-left', {
       playerName: kickedPlayerName,
       remainingPlayers: room.players,
@@ -1143,10 +1172,14 @@ app.post('/api/kick-player', async (req, res) => {
       timestamp: Date.now()
     });
 
+    console.log('=== Kick process completed successfully ===');
     res.json({ success: true });
   } catch (error) {
-    console.error('Error kicking player:', error);
-    res.status(500).json({ error: 'Failed to kick player' });
+    console.error('Error during kick process:', error);
+    res.status(500).json({ 
+      error: 'Failed to kick player',
+      details: error.message 
+    });
   }
 });
 
