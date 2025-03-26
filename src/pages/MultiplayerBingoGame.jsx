@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { 
   Box, 
   Container, 
@@ -108,6 +108,9 @@ function MultiplayerBingoGame() {
 
   // Add new state for ready status
   const [isReady, setIsReady] = useState(false)
+
+  // Add these new states in your component
+  const [playerStatuses, setPlayerStatuses] = useState({});
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -851,7 +854,7 @@ function MultiplayerBingoGame() {
     };
 
     // Handle visibility change
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = async () => {
       if (document.visibilityState === 'hidden' && !isClosing) {
         // User switched tabs or minimized, but didn't close
         // We can optionally notify other players that this player is "away"
@@ -1081,6 +1084,25 @@ function MultiplayerBingoGame() {
       });
     }
   };
+
+  // Add this effect to handle status updates from other players
+  useEffect(() => {
+    if (roomId) {
+      const channel = pusher.subscribe(`room-${roomId}`);
+      
+      channel.bind('player-status-changed', (data) => {
+        setPlayerStatuses(prev => ({
+          ...prev,
+          [data.playerName]: data.status
+        }));
+      });
+
+      return () => {
+        channel.unbind_all();
+        pusher.unsubscribe(`room-${roomId}`);
+      };
+    }
+  }, [roomId]);
 
   if (gameState === 'init') {
     return (
@@ -1391,6 +1413,9 @@ function MultiplayerBingoGame() {
                         <Badge colorScheme={player.isReady ? "green" : "red"}>
                           {player.isReady ? "Ready" : "Not Ready"}
                         </Badge>
+                        {playerStatuses[player.name] === 'away' && (
+                          <Badge colorScheme="yellow">Away</Badge>
+                        )}
                         {/* Add kick button - only visible to host and not for themselves */}
                         {players.find(p => p.name === playerName)?.isHost && 
                          !player.isHost && (

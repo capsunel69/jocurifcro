@@ -149,6 +149,16 @@ function cleanupPlayer(roomId, playerName) {
   console.log(`Cleanup complete. Remaining players: ${room.players.map(p => p.name).join(', ')}`);
 }
 
+// Add this near the top with other helper functions
+function updatePlayerStatus(room, playerName, status) {
+  const player = room.players.find(p => p.name === playerName);
+  if (player) {
+    player.status = status;
+    return true;
+  }
+  return false;
+}
+
 app.post('/api/create-room', (req, res) => {
   const { playerName } = req.body;
   
@@ -1054,7 +1064,7 @@ app.post('/api/skip-player', async (req, res) => {
   }
 });
 
-// Add new endpoint to handle status updates
+// Update the update-status endpoint to be more robust
 app.post('/api/update-status', async (req, res) => {
   const { roomId, playerName, status } = req.body;
   const room = activeRooms.get(roomId);
@@ -1065,19 +1075,20 @@ app.post('/api/update-status', async (req, res) => {
 
   try {
     // Update player status in room
-    const player = room.players.find(p => p.name === playerName);
-    if (player) {
-      player.status = status;
-      
-      // Optionally notify other players of status change
+    const updated = updatePlayerStatus(room, playerName, status);
+    
+    if (updated) {
+      // Notify other players of status change
       await pusher.trigger(`room-${roomId}`, 'player-status-changed', {
         playerName,
         status,
         timestamp: Date.now()
       });
+      
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: 'Player not found' });
     }
-
-    res.json({ success: true });
   } catch (error) {
     console.error('Error updating player status:', error);
     res.status(500).json({ error: 'Failed to update player status' });
