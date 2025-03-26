@@ -1452,11 +1452,53 @@ function MultiplayerBingoGame() {
                 
                 {/* Ready button for ALL players */}
                 <Button
-                  colorScheme={isReady ? "green" : "red"}
+                  colorScheme={isReady ? "green" : "blue"}
                   onClick={handleReadyToggle}
                   w="full"
+                  size="lg"
+                  h="56px"
+                  bg={isReady 
+                    ? "linear-gradient(135deg, #48BB78 0%, #2F855A 100%)"
+                    : "linear-gradient(135deg, #4299E1 0%, #2B6CB0 100%)"
+                  }
+                  _hover={{
+                    transform: 'translateY(-2px)',
+                    boxShadow: isReady
+                      ? '0 4px 12px rgba(72, 187, 120, 0.4)'
+                      : '0 4px 12px rgba(66, 153, 225, 0.4)'
+                  }}
+                  _active={{
+                    transform: 'translateY(0)',
+                    boxShadow: 'none'
+                  }}
+                  transition="all 0.2s"
+                  position="relative"
+                  overflow="hidden"
                 >
-                  {isReady ? "Ready!" : "Ready!"}
+                  <HStack spacing={2} justify="center">
+                    {isReady ? (
+                      <>
+                        <Text>✓</Text>
+                        <Text>Ready!</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text>Click when ready</Text>
+                      </>
+                    )}
+                  </HStack>
+                  {isReady && (
+                    <Box
+                      position="absolute"
+                      top="0"
+                      left="0"
+                      right="0"
+                      bottom="0"
+                      bg="white"
+                      opacity="0.1"
+                      animation="pulse 2s infinite"
+                    />
+                  )}
                 </Button>
                 
                 {/* Add Exit Room button here */}
