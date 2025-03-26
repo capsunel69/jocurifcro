@@ -919,9 +919,11 @@ function MultiplayerBingoGame() {
     return (
       <Box
         minH="100vh"
+        height="100vh"
         backgroundImage="url('/images/bg-pattern-dark.png')"
         backgroundSize="cover"
         py={10}
+        overflow="auto"
       >
         <Container maxW="container.md">
           <VStack spacing={8}>
@@ -1194,7 +1196,7 @@ function MultiplayerBingoGame() {
                     color="white"
                     textShadow="0 2px 4px rgba(0, 0, 0, 0.3)"
                   >
-                    {currentPlayer.f} {currentPlayer.g}
+                    {currentPlayer.g} {currentPlayer.f}
                   </Text>
                   <Box position="relative" display="flex" justifyContent="center" mb={2}>
                     <MpTimer seconds={timeRemaining} onTimeUp={handleTimeUp} />

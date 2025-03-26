@@ -22,6 +22,12 @@ function App() {
   const location = useLocation()
 
   useEffect(() => {
+    // Reset scroll position on route change
+    window.scrollTo(0, 0);
+    window.history.scrollRestoration = 'manual';
+  }, [location]);
+
+  useEffect(() => {
     // Send pageview with a location
     ReactGA.send({ hitType: "pageview", page: location.pathname });
   }, [location])

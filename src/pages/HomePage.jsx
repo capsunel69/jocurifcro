@@ -63,6 +63,14 @@ function HomePage() {
 
   const games = [
     {
+      title: "Bingo Multiplayer",
+      description: "Accepta provocarea si joaca Bingo alaturi de prieteni intr-o experienta multiplayer captivanta si amuzanta!",
+      image: "/images/bingo-multiplayer.jpg",
+      icon: FaDice,
+      path: "/multiplayer-bingo",
+      gradient: "linear(to-r, green.400, teal.400)"
+    },
+    {
       title: "Bingo",
       description: "Ghiceste fotbalistii legendari si actuali intr-un joc captivant de bingo care iti pune la incercare cunostintele despre fotbal!",
       image: "/images/bingo game.jpg",
@@ -77,14 +85,6 @@ function HomePage() {
       icon: FaUserSecret,
       path: "/ghiceste-jucatorul",
       gradient: "linear(to-r, purple.400, blue.400)"
-    },
-    {
-      title: "Bingo Multiplayer",
-      description: "Accepta provocarea si joaca Bingo alaturi de prieteni intr-o experienta multiplayer captivanta si amuzanta!",
-      image: "/images/bingo-multiplayer.jpg",
-      icon: FaDice,
-      path: "/multiplayer-bingo",
-      gradient: "linear(to-r, green.400, teal.400)"
     }
   ]
 
