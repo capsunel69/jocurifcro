@@ -70,6 +70,9 @@ const finishedPlayers = new Set();
 const activeConnections = new Map();
 const disconnectedPlayers = new Set();
 
+// Add a Set to track notifications sent
+const notificationsSent = new Set();
+
 // Add this function to handle connection status
 function updatePlayerConnection(roomId, playerName, isConnected) {
   const key = `${roomId}-${playerName}`;
@@ -903,18 +906,30 @@ function cleanupRoom(roomId) {
   }
 }
 
-// Update the exit-room handler to ensure proper player removal and notifications
+// At the top with other Sets
+const exitingPlayers = new Set();
+
+// Modify the exit-room handler
 app.post('/api/exit-room', async (req, res) => {
   const { roomId, playerName } = req.body;
+  const exitKey = `${roomId}-${playerName}`;
+  
+  // If player is already exiting, just return success
+  if (exitingPlayers.has(exitKey)) {
+    return res.json({ success: true });
+  }
+  
+  exitingPlayers.add(exitKey);
   console.log(`\n=== Player ${playerName} exiting room ${roomId} ===`);
 
   try {
     const room = activeRooms.get(roomId);
     if (!room) {
+      exitingPlayers.delete(exitKey);
       return res.status(404).json({ error: 'Room not found' });
     }
 
-    // First notify the specific player to redirect
+    // Send notification only once
     await pusher.trigger(`room-${roomId}-${playerName}`, 'force-redirect', {
       message: 'You have been disconnected from the room',
       timestamp: Date.now()
@@ -923,13 +938,11 @@ app.post('/api/exit-room', async (req, res) => {
     // Small delay to ensure the redirect message is received
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    // Then proceed with the normal cleanup...
     updatePlayerConnection(roomId, playerName, false);
     
     const isHost = room.players[0]?.name === playerName;
     console.log(`${isHost ? 'Host' : 'Regular'} player ${playerName} is exiting`);
 
-    // Rest of the existing cleanup code...
     cleanupPlayer(roomId, playerName);
 
     if (isHost) {
@@ -940,13 +953,11 @@ app.post('/api/exit-room', async (req, res) => {
         timestamp: Date.now()
       });
     } else {
-      // If in a game and less than 2 players remain, reset the room
       if (room.gameState === 'playing' && room.players.length < 2) {
         console.log('Resetting game due to insufficient players');
         resetRoom(roomId);
       }
 
-      // Notify remaining players
       await pusher.trigger(`room-${roomId}`, 'player-left', {
         playerName,
         remainingPlayers: room.players,
@@ -959,6 +970,11 @@ app.post('/api/exit-room', async (req, res) => {
   } catch (error) {
     console.error('Error handling player exit:', error);
     res.status(500).json({ error: 'Failed to process player exit' });
+  } finally {
+    // Clean up after a delay to prevent race conditions
+    setTimeout(() => {
+      exitingPlayers.delete(exitKey);
+    }, 2000);
   }
 });
 

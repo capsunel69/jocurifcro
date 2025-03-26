@@ -1259,6 +1259,7 @@ function MultiplayerBingoGame() {
               border="1px solid rgba(255,255,255,0.1)"
               w="full"
               maxW="650px"
+              position="relative"
             >
               <VStack spacing={6}>
                 <HStack w="full" justify="space-between" align="center">
@@ -1376,6 +1377,26 @@ function MultiplayerBingoGame() {
                   w="full"
                 >
                   {isReady ? "Ready!" : "Click when Ready"}
+                </Button>
+                
+                {/* Add Exit Room button here */}
+                <Button
+                  variant="ghost"
+                  colorScheme="red"
+                  onClick={handleExitToMenu}
+                  w="full"
+                  size="md"
+                  opacity={0.6}
+                  bg="rgb(53, 15, 15)"
+                  borderWidth="1px"
+                  borderColor="rgba(9, 75, 129, 0.1)"
+                  _hover={{
+                    opacity: 1,
+                    bg: 'rgba(255, 0, 0, 0.1)',
+                    borderColor: 'rgba(255, 0, 0, 0.2)'
+                  }}
+                >
+                  Exit Room
                 </Button>
                 
                 {/* Host controls - only show game mode select for host */}
