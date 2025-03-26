@@ -1603,14 +1603,9 @@ function MultiplayerBingoGame() {
       // If scores are tied, sort alphabetically by name
       return a.name.localeCompare(b.name);
     });
-    
-    console.log('Game over state:', {
-      allPlayersFinished,
-      finishedPlayers,
-      players,
-      remainingPlayers: players.length - finishedPlayers.length,
-      rankedPlayers
-    });
+
+    // Calculate how many players haven't finished yet
+    const unfinishedCount = players.filter(p => !finishedPlayers.includes(p.name)).length;
     
     return (
       <Box
@@ -1672,12 +1667,12 @@ function MultiplayerBingoGame() {
                   const score = playerScores[player.name] || 0;
                   const isCurrentPlayer = player.name === playerName;
                   
-                  // Determine rank (handle ties by giving players with the same score the same rank)
+                  // Determine rank (handle ties)
                   let rank = index + 1;
                   if (index > 0) {
                     const prevScore = playerScores[rankedPlayers[index - 1].name] || 0;
                     if (score === prevScore) {
-                      rank = index; // Same rank as previous player
+                      rank = index;
                     }
                   }
                   
@@ -1727,54 +1722,39 @@ function MultiplayerBingoGame() {
               </VStack>
             </Box>
 
-            {/* Players still in game - Only show if not all players finished */}
-            {!allPlayersFinished && (
-              <Text
-                color="gray.400"
-                fontSize="lg"
-                textAlign="center"
-              >
-                {(() => {
-                  // Get the count of active players who haven't finished
-                  const remainingCount = players.filter(p => !finishedPlayers.includes(p.name)).length;
-                  
-                  // Only show message if there are remaining players
-                  if (remainingCount <= 0) return null;
-                  
-                  return `Waiting for ${remainingCount} player${remainingCount > 1 ? 's' : ''} to finish...`;
-                })()}
-              </Text>
-            )}
-
             {/* Actions */}
             <VStack spacing={4}>
               {isHost && (
                 <Box position="relative" w="full">
                   <Button
-                    colorScheme="blue"
+                    colorScheme={unfinishedCount === 0 ? "green" : "red"}
                     size="lg"
                     onClick={handlePlayAgain}
-                    bg="linear-gradient(135deg, #3182ce 0%, #2c5282 100%)"
                     w="full"
-                    isDisabled={!allPlayersFinished || players.some(p => !finishedPlayers.includes(p.name))}
-                    opacity={allPlayersFinished && players.every(p => finishedPlayers.includes(p.name)) ? 1 : 0.5}
+                    bg={unfinishedCount === 0
+                      ? "linear-gradient(135deg, #48BB78 0%, #2F855A 100%)"
+                      : "linear-gradient(135deg, #E53E3E 0%, #9B2C2C 100%)"
+                    }
                     _hover={{
-                      transform: allPlayersFinished ? 'translateY(-2px)' : 'none',
-                      boxShadow: allPlayersFinished ? '0 4px 12px rgba(49, 130, 206, 0.4)' : 'none'
+                      transform: 'translateY(-2px)',
+                      boxShadow: unfinishedCount === 0
+                        ? '0 4px 12px rgba(72, 187, 120, 0.4)'
+                        : '0 4px 12px rgba(229, 62, 62, 0.4)'
                     }}
                   >
-                    {allPlayersFinished && players.every(p => finishedPlayers.includes(p.name)) 
+                    {unfinishedCount === 0
                       ? 'Start New Game' 
-                      : 'Waiting for players...'}
+                      : `Start New Game (${unfinishedCount} still playing)`
+                    }
                   </Button>
-                  {(!allPlayersFinished || players.some(p => !finishedPlayers.includes(p.name))) && (
+                  {unfinishedCount > 0 && (
                     <Text
-                      color="gray.400"
+                      color="red.300"
                       fontSize="sm"
                       textAlign="center"
                       mt={2}
                     >
-                      Waiting...
+                      Warning: Some players haven't finished yet
                     </Text>
                   )}
                 </Box>
