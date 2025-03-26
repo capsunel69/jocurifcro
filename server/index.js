@@ -160,6 +160,11 @@ app.post('/api/join-room', async (req, res) => {
   if (room.players.some(p => p.name === playerName)) {
     return res.status(400).json({ error: 'Player name already taken' });
   }
+
+  // Add player limit check
+  if (room.players.length >= 5) {
+    return res.status(400).json({ error: 'Room is full (maximum 5 players)' });
+  }
   
   // Add player to room
   room.players.push({ name: playerName, isHost: false });
