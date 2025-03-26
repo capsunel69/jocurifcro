@@ -1705,6 +1705,9 @@ function MultiplayerBingoGame() {
                   if (rank === 1) medal = "🥇";
                   else if (rank === 2) medal = "🥈";
                   else if (rank === 3) medal = "🥉";
+
+                  // Get player status
+                  const playerStatus = playerStatuses[player.name];
                   
                   return (
                     <HStack
@@ -1734,10 +1737,12 @@ function MultiplayerBingoGame() {
                       </HStack>
                       <HStack spacing={3}>
                         <Text color="white" fontWeight="bold">{score} matches</Text>
-                        {finishedPlayers.includes(player.name) ? (
+                        {playerStatus === 'away' ? (
+                          <Badge colorScheme="yellow">Away</Badge>
+                        ) : finishedPlayers.includes(player.name) ? (
                           <Badge colorScheme="green">Finished</Badge>
                         ) : (
-                          <Badge colorScheme="yellow">Playing</Badge>
+                          <Badge colorScheme="blue">Playing</Badge>
                         )}
                       </HStack>
                     </HStack>
