@@ -121,6 +121,26 @@ function sanitizeChannelName(channelName) {
   return channelName.replace(/[^a-zA-Z0-9-_]/g, '_');
 }
 
+// Add this helper function near other helper functions
+function cleanupPlayer(roomId, playerName) {
+  const room = activeRooms.get(roomId);
+  if (!room) return;
+
+  // Remove player from the room's players array
+  room.players = room.players.filter(p => p.name !== playerName);
+  
+  // Remove player from any game state if exists
+  if (room.currentGame?.playerStates) {
+    room.currentGame.playerStates.delete(playerName);
+  }
+
+  // Add to disconnected players set
+  disconnectedPlayers.add(`${roomId}-${playerName}`);
+
+  console.log(`Cleaned up player ${playerName} from room ${roomId}`);
+  console.log(`Remaining players: ${room.players.map(p => p.name).join(', ')}`);
+}
+
 app.post('/api/create-room', (req, res) => {
   const { playerName } = req.body;
   
@@ -726,33 +746,6 @@ function getPlayerStatus(roomId) {
   return status;
 }
 
-// Add these helper functions at the top
-function cleanupPlayer(roomId, playerName) {
-  const room = activeRooms.get(roomId);
-  if (!room) return;
-
-  // Only remove the player if they're actually disconnected
-  const key = `${roomId}-${playerName}`;
-  const isDisconnected = !activeConnections.has(key);
-  
-  if (isDisconnected) {
-    // Remove from players array
-    room.players = room.players.filter(p => p.name !== playerName);
-    
-    // Clear player state
-    if (room.currentGame?.playerStates) {
-      room.currentGame.playerStates.delete(playerName);
-    }
-
-    // Clear finished state
-    const finishedKey = `${roomId}-${playerName}`;
-    if (finishedPlayers.has(finishedKey)) {
-      console.log(`Clearing finished state for ${playerName}`);
-      finishedPlayers.delete(finishedKey);
-    }
-  }
-}
-
 function resetRoom(roomId) {
   const room = activeRooms.get(roomId);
   if (!room) return;
@@ -1112,6 +1105,48 @@ app.post('/api/toggle-ready', async (req, res) => {
   } catch (error) {
     console.error('Error toggling ready status:', error);
     res.status(500).json({ error: 'Failed to update ready status' });
+  }
+});
+
+// Add new endpoint to handle player kicks
+app.post('/api/kick-player', async (req, res) => {
+  const { roomId, playerName, kickedPlayerName } = req.body;
+  const room = activeRooms.get(roomId);
+  
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  // Verify that the request is coming from the host
+  const isHost = room.players.find(p => p.name === playerName)?.isHost;
+  if (!isHost) {
+    return res.status(403).json({ error: 'Only the host can kick players' });
+  }
+
+  try {
+    // Notify the kicked player
+    await pusher.trigger(`room-${roomId}-${kickedPlayerName}`, 'force-redirect', {
+      message: 'You have been kicked from the room',
+      timestamp: Date.now()
+    });
+
+    // Use existing exit logic
+    updatePlayerConnection(roomId, kickedPlayerName, false);
+    cleanupPlayer(roomId, kickedPlayerName);
+
+    // Notify remaining players
+    await pusher.trigger(`room-${roomId}`, 'player-left', {
+      playerName: kickedPlayerName,
+      remainingPlayers: room.players,
+      gameState: room.gameState,
+      wasKicked: true,
+      timestamp: Date.now()
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error kicking player:', error);
+    res.status(500).json({ error: 'Failed to kick player' });
   }
 });
 

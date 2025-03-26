@@ -1056,6 +1056,32 @@ function MultiplayerBingoGame() {
     }
   };
 
+  // Add this function to handle kicking players
+  const handleKickPlayer = async (kickedPlayerName) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/kick-player`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          roomId, 
+          playerName,
+          kickedPlayerName 
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to kick player');
+      }
+    } catch (error) {
+      console.error('Error kicking player:', error);
+      toast({
+        title: "Error",
+        description: "Failed to kick player",
+        status: "error",
+      });
+    }
+  };
+
   if (gameState === 'init') {
     return (
       <Box
@@ -1360,11 +1386,43 @@ function MultiplayerBingoGame() {
                       <Text color="white">{player.name}</Text>
                       <HStack spacing={2}>
                         {player.isHost && (
-                          <Badge colorScheme="green">Host</Badge>
+                          <Badge colorScheme="blue">Host</Badge>
                         )}
                         <Badge colorScheme={player.isReady ? "green" : "red"}>
                           {player.isReady ? "Ready" : "Not Ready"}
                         </Badge>
+                        {/* Add kick button - only visible to host and not for themselves */}
+                        {players.find(p => p.name === playerName)?.isHost && 
+                         !player.isHost && (
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            colorScheme="red"
+                            opacity={0.4}
+                            minW="24px"
+                            h="24px"
+                            p={0}
+                            ml={1}
+                            borderRadius="full"
+                            _hover={{
+                              opacity: 1,
+                              bg: 'rgba(255, 0, 0, 0.15)',
+                              transform: 'scale(1.1)',
+                              borderColor: 'transparent'
+                            }}
+                            _active={{
+                              transform: 'scale(0.95)',
+                              bg: 'rgba(255, 0, 0, 0.25)'
+                            }}
+                            _focus={{
+                              boxShadow: 'none'
+                            }}
+                            transition="all 0.2s"
+                            onClick={() => handleKickPlayer(player.name)}
+                          >
+                            <Text fontSize="16px" fontWeight="bold" lineHeight="1">×</Text>
+                          </Button>
+                        )}
                       </HStack>
                     </HStack>
                   ))}
