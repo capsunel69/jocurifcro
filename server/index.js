@@ -1357,7 +1357,7 @@ app.post('/api/kick-player', async (req, res) => {
 // Add a cleanup interval to check for stale connections
 setInterval(() => {
   const now = Date.now();
-  const staleThreshold = 21000; // 7 seconds (3 missed heartbeats)
+  const staleThreshold = 15000; // 15 seconds (3 missed heartbeats)
   
   for (const [key, lastHeartbeat] of playerHeartbeats.entries()) {
     if (now - lastHeartbeat > staleThreshold) {
@@ -1381,7 +1381,7 @@ setInterval(() => {
       playerHeartbeats.delete(key);
     }
   }
-}, 7000); // Check every 7 seconds
+}, 5000); // Check every 5 second
 
 app.listen(3001, () => {
   console.log('Server running on port 3001');
