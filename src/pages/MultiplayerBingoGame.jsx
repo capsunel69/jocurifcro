@@ -1887,7 +1887,8 @@ function MultiplayerBingoGame() {
 
             {/* Actions */}
             <VStack spacing={4}>
-              {isHost && (
+              {/* Only show Start New Game button if player is host */}
+              {players.find(p => p.name === playerName)?.isHost && (
                 <Box position="relative" w="full">
                   <Button
                     colorScheme={unfinishedCount === 0 ? "green" : "red"}
