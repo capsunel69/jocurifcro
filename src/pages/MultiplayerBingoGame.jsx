@@ -839,8 +839,6 @@ function MultiplayerBingoGame() {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         isHidden = true;
-        // Set a timeout - if we don't become visible again in 1 second,
-        // assume the tab/app was closed
         timeoutId = setTimeout(() => {
           if (isHidden) {
             sendExitRequest();
@@ -992,6 +990,23 @@ function MultiplayerBingoGame() {
     console.log('Generated link:', link); // Debug log
     return link;
   };
+
+  useEffect(() => {
+    if (roomId && playerName) {
+      const channel = pusher.subscribe(`room-${roomId}-${playerName}`);
+      
+      // Add this new event handler
+      channel.bind('force-redirect', (data) => {
+        console.log('Received force-redirect event:', data);
+        window.location.href = '/multiplayer-bingo';
+      });
+
+      return () => {
+        channel.unbind_all();
+        pusher.unsubscribe(`room-${roomId}-${playerName}`);
+      };
+    }
+  }, [roomId, playerName]);
 
   if (gameState === 'init') {
     return (
