@@ -73,6 +73,9 @@ const disconnectedPlayers = new Set();
 // Add a Set to track notifications sent
 const notificationsSent = new Set();
 
+// First, add this near the top with other state tracking
+const playerStatuses = new Map(); // Add this to track statuses persistently
+
 // Add this function to handle connection status
 function updatePlayerConnection(roomId, playerName, isConnected) {
   const key = `${roomId}-${playerName}`;
@@ -121,36 +124,27 @@ function sanitizeChannelName(channelName) {
   return channelName.replace(/[^a-zA-Z0-9-_]/g, '_');
 }
 
-// Add this helper function near other helper functions
-function cleanupPlayer(roomId, playerName) {
-  const room = activeRooms.get(roomId);
-  if (!room) {
-    console.log(`Room ${roomId} not found during cleanup`);
-    return;
-  }
-
-  console.log(`Cleaning up player ${playerName} from room ${roomId}`);
-
-  // Remove player from the room's players array
-  room.players = room.players.filter(p => p.name !== playerName);
-  
-  // Remove player from any game state if exists
-  if (room.currentGame?.playerStates) {
-    room.currentGame.playerStates.delete(playerName);
-  }
-
-  // Remove from finished players if present
-  const finishedKey = `${roomId}-${playerName}`;
-  finishedPlayers.delete(finishedKey);
-
-  // Add to disconnected players set
-  disconnectedPlayers.add(`${roomId}-${playerName}`);
-
-  console.log(`Cleanup complete. Remaining players: ${room.players.map(p => p.name).join(', ')}`);
-}
-
-// Add this near the top with other helper functions
+// Update the updatePlayerStatus function to use the correct roomId
 function updatePlayerStatus(room, playerName, status) {
+  // Get roomId from the activeRooms Map
+  let roomId;
+  for (const [id, r] of activeRooms.entries()) {
+    if (r === room) {
+      roomId = id;
+      break;
+    }
+  }
+  
+  if (!roomId) {
+    console.error('Could not find roomId for player status update');
+    return false;
+  }
+
+  const key = `${roomId}-${playerName}`;
+  console.log(`Updating player status: ${key} -> ${status}`); // Debug log
+  playerStatuses.set(key, status);
+  
+  // Also update in room.players for immediate state
   const player = room.players.find(p => p.name === playerName);
   if (player) {
     player.status = status;
@@ -303,6 +297,19 @@ app.post('/api/start-game', async (req, res) => {
     console.log(`Game started in room ${roomId} with ${room.players.length} players`);
     console.log('Initial player states:', Object.fromEntries(room.currentGame.playerStates));
 
+    // Preserve player statuses when initializing new game
+    const currentStatuses = {};
+    room.players.forEach(player => {
+      const statusKey = `${roomId}-${player.name}`;
+      const status = playerStatuses.get(statusKey);
+      if (status) {
+        currentStatuses[player.name] = status;
+        player.status = status; // Make sure to update the player object
+      }
+    });
+
+    console.log('Current player statuses:', currentStatuses); // Debug log
+
     // Notify all players with complete game data
     await pusher.trigger(`room-${roomId}`, 'game-started', {
       gameData: {
@@ -312,13 +319,13 @@ app.post('/api/start-game', async (req, res) => {
         gameMode: gameMode,
         currentPlayer: firstPlayer,
         maxPlayers: gameCard.gameData.players.length
-      }
+      },
+      playerStatuses: currentStatuses // Send the current statuses
     });
 
     res.json({ success: true });
   } catch (error) {
     console.error('Error starting game:', error);
-    // Reset room state on error
     room.gameState = 'waiting';
     room.currentGame = null;
     res.status(500).json({ error: 'Failed to start game' });
@@ -830,7 +837,7 @@ app.post('/api/player-exit', async (req, res) => {
   }
 });
 
-// Update the reset-game endpoint
+// Update the reset-game endpoint to preserve statuses
 app.post('/api/reset-game', async (req, res) => {
   const { roomId } = req.body;
   console.log(`\n=== Attempting to reset game in room ${roomId} ===`);
@@ -842,13 +849,24 @@ app.post('/api/reset-game', async (req, res) => {
       return res.status(404).json({ error: 'Room not found' });
     }
 
-    // Reset all game state
+    // Store current statuses before reset
+    const currentStatuses = new Map();
+    room.players.forEach(player => {
+      const statusKey = `${roomId}-${player.name}`;
+      const status = playerStatuses.get(statusKey);
+      if (status) {
+        currentStatuses.set(player.name, status);
+      }
+    });
+
+    // Reset game state
     room.gameState = 'waiting';
     room.currentGame = null;
 
-    // Reset ready status for all players
+    // Reset ready status but preserve away status
     room.players.forEach(player => {
       player.isReady = false;
+      player.status = currentStatuses.get(player.name) || 'active';
     });
 
     // Clear all finished states for this room
@@ -869,6 +887,7 @@ app.post('/api/reset-game', async (req, res) => {
 
     await pusher.trigger(`room-${roomId}`, 'game-reset', {
       activePlayers: room.players,
+      playerStatuses: Object.fromEntries(currentStatuses),
       timestamp: Date.now()
     });
 
@@ -903,7 +922,37 @@ app.post('/api/get-player-state', async (req, res) => {
   }
 });
 
-// Add new helper function to clean up rooms
+// Update the cleanup functions to handle status cleanup
+function cleanupPlayer(roomId, playerName) {
+  const room = activeRooms.get(roomId);
+  if (!room) {
+    console.log(`Room ${roomId} not found during cleanup`);
+    return;
+  }
+
+  console.log(`Cleaning up player ${playerName} from room ${roomId}`);
+
+  // Remove player from the room's players array
+  room.players = room.players.filter(p => p.name !== playerName);
+  
+  // Remove player from any game state if exists
+  if (room.currentGame?.playerStates) {
+    room.currentGame.playerStates.delete(playerName);
+  }
+
+  // Remove from finished players if present
+  const finishedKey = `${roomId}-${playerName}`;
+  finishedPlayers.delete(finishedKey);
+
+  // Add to disconnected players set
+  disconnectedPlayers.add(`${roomId}-${playerName}`);
+
+  console.log(`Cleanup complete. Remaining players: ${room.players.map(p => p.name).join(', ')}`);
+
+  // Clean up player status
+  playerStatuses.delete(`${roomId}-${playerName}`);
+}
+
 function cleanupRoom(roomId) {
   const room = activeRooms.get(roomId);
   if (room) {
@@ -914,6 +963,13 @@ function cleanupRoom(roomId) {
       }
     }
     activeRooms.delete(roomId);
+  }
+
+  // Clean up all player statuses for this room
+  for (const key of playerStatuses.keys()) {
+    if (key.startsWith(`${roomId}-`)) {
+      playerStatuses.delete(key);
+    }
   }
 }
 
@@ -1074,21 +1130,33 @@ app.post('/api/update-status', async (req, res) => {
   }
 
   try {
-    // Update player status in room
-    const updated = updatePlayerStatus(room, playerName, status);
+    console.log(`Updating status for ${playerName} to ${status} in room ${roomId}`); // Debug log
     
-    if (updated) {
-      // Notify other players of status change
-      await pusher.trigger(`room-${roomId}`, 'player-status-changed', {
-        playerName,
-        status,
-        timestamp: Date.now()
-      });
-      
-      res.json({ success: true });
-    } else {
-      res.status(404).json({ error: 'Player not found' });
+    // Update both the persistent map and the room state
+    const key = `${roomId}-${playerName}`;
+    playerStatuses.set(key, status);
+    
+    const player = room.players.find(p => p.name === playerName);
+    if (player) {
+      player.status = status;
     }
+
+    // Get current statuses for all players
+    const currentStatuses = {};
+    room.players.forEach(p => {
+      const statusKey = `${roomId}-${p.name}`;
+      currentStatuses[p.name] = playerStatuses.get(statusKey) || 'active';
+    });
+
+    // Notify other players of status change with all current statuses
+    await pusher.trigger(`room-${roomId}`, 'player-status-changed', {
+      playerName,
+      status,
+      allStatuses: currentStatuses,
+      timestamp: Date.now()
+    });
+    
+    res.json({ success: true });
   } catch (error) {
     console.error('Error updating player status:', error);
     res.status(500).json({ error: 'Failed to update player status' });

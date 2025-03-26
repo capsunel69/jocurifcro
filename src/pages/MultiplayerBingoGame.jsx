@@ -130,7 +130,7 @@ function MultiplayerBingoGame() {
       channel.bind('game-started', (data) => {
         console.log('Game started event received:', data);
         
-        // Reset all game state when a new game starts
+        // Reset game state
         setValidSelections([]);
         setSelectedCells([]);
         setUsedPlayers([]);
@@ -150,6 +150,11 @@ function MultiplayerBingoGame() {
         
         // Set the current card ID
         setCurrentCardId(data.gameData.currentCard);
+        
+        // Preserve player statuses if provided
+        if (data.playerStatuses) {
+          setPlayerStatuses(data.playerStatuses);
+        }
         
         // Reset timer
         setTimeRemaining(10);
@@ -342,6 +347,12 @@ function MultiplayerBingoGame() {
         console.log('Game reset event received:', data);
         setGameState('waiting');
         setPlayers(data.activePlayers || []);
+        
+        // Preserve player statuses if provided
+        if (data.playerStatuses) {
+          setPlayerStatuses(data.playerStatuses);
+        }
+        
         toast({
           title: "Game Reset",
           description: data.reason || "The game has been reset.",
@@ -420,6 +431,19 @@ function MultiplayerBingoGame() {
               : player
           )
         );
+      });
+
+      // Update the player-status-changed event handler
+      channel.bind('player-status-changed', (data) => {
+        console.log('Status change event received:', data);
+        if (data.allStatuses) {
+          setPlayerStatuses(data.allStatuses);
+        } else {
+          setPlayerStatuses(prev => ({
+            ...prev,
+            [data.playerName]: data.status
+          }));
+        }
       });
 
       return () => {
@@ -855,33 +879,27 @@ function MultiplayerBingoGame() {
 
     // Handle visibility change
     const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'hidden' && !isClosing) {
-        // User switched tabs or minimized, but didn't close
-        // We can optionally notify other players that this player is "away"
-        if (roomId && playerName) {
-          fetch(`${API_BASE_URL}/api/update-status`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              roomId, 
-              playerName,
-              status: 'away'
-            })
-          }).catch(console.error);
+      if (!roomId || !playerName) return;
+
+      const status = document.visibilityState === 'hidden' ? 'away' : 'active';
+      console.log(`Visibility changed to ${status} for ${playerName}`);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/update-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            roomId, 
+            playerName,
+            status 
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update status');
         }
-      } else if (document.visibilityState === 'visible') {
-        // User came back
-        if (roomId && playerName) {
-          fetch(`${API_BASE_URL}/api/update-status`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              roomId, 
-              playerName,
-              status: 'active'
-            })
-          }).catch(console.error);
-        }
+      } catch (error) {
+        console.error('Error updating status:', error);
       }
     };
 
@@ -1084,25 +1102,6 @@ function MultiplayerBingoGame() {
       });
     }
   };
-
-  // Add this effect to handle status updates from other players
-  useEffect(() => {
-    if (roomId) {
-      const channel = pusher.subscribe(`room-${roomId}`);
-      
-      channel.bind('player-status-changed', (data) => {
-        setPlayerStatuses(prev => ({
-          ...prev,
-          [data.playerName]: data.status
-        }));
-      });
-
-      return () => {
-        channel.unbind_all();
-        pusher.unsubscribe(`room-${roomId}`);
-      };
-    }
-  }, [roomId]);
 
   if (gameState === 'init') {
     return (
