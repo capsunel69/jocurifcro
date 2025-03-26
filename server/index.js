@@ -79,18 +79,23 @@ const playerStatuses = new Map(); // Add this to track statuses persistently
 // Add this near the top with other state tracking
 const roomTimeouts = new Map(); // Track timeouts for empty rooms
 
+// Add this near the top with other state tracking
+const playerHeartbeats = new Map(); // Track last heartbeat time for each player
+
 // Add this function to handle connection status
-function updatePlayerConnection(roomId, playerName, isConnected) {
+function updatePlayerConnection(roomId, playerName, isConnected, timestamp = Date.now()) {
   const key = `${roomId}-${playerName}`;
   
   if (isConnected) {
     console.log(`Player ${playerName} connected in room ${roomId}`);
-    activeConnections.set(key, Date.now());
+    playerHeartbeats.set(key, timestamp);
+    activeConnections.set(key, timestamp);
     disconnectedPlayers.delete(key);
   } else {
     console.log(`Player ${playerName} disconnected in room ${roomId}`);
+    playerHeartbeats.delete(key);
     activeConnections.delete(key);
-    // Don't add to disconnectedPlayers here - we'll do that only on actual exit
+    disconnectedPlayers.add(key);
   }
 }
 
@@ -1193,7 +1198,7 @@ app.post('/api/skip-player', async (req, res) => {
 
 // Update the update-status endpoint to handle mobile cases better
 app.post('/api/update-status', async (req, res) => {
-  const { roomId, playerName, status } = req.body;
+  const { roomId, playerName, status, timestamp } = req.body;
   const room = activeRooms.get(roomId);
   
   if (!room) {
@@ -1201,21 +1206,21 @@ app.post('/api/update-status', async (req, res) => {
   }
 
   try {
-    console.log(`Updating status for ${playerName} to ${status} in room ${roomId}`);
-    
-    // Add timestamp to status updates to handle race conditions
     const key = `${roomId}-${playerName}`;
-    const timestamp = Date.now();
     
+    // Update heartbeat timestamp
+    playerHeartbeats.set(key, timestamp || Date.now());
+    
+    // Update player status
     playerStatuses.set(key, {
       status,
-      timestamp
+      timestamp: timestamp || Date.now()
     });
     
     const player = room.players.find(p => p.name === playerName);
     if (player) {
       player.status = status;
-      player.statusTimestamp = timestamp;
+      player.statusTimestamp = timestamp || Date.now();
     }
 
     // Get current statuses for all players
@@ -1229,13 +1234,15 @@ app.post('/api/update-status', async (req, res) => {
       };
     });
 
-    // Notify other players with timestamps
-    await pusher.trigger(`room-${roomId}`, 'player-status-changed', {
-      playerName,
-      status,
-      allStatuses: currentStatuses,
-      timestamp
-    });
+    // Only notify others if status actually changed
+    if (status !== 'active' || !timestamp) {
+      await pusher.trigger(`room-${roomId}`, 'player-status-changed', {
+        playerName,
+        status,
+        allStatuses: currentStatuses,
+        timestamp: timestamp || Date.now()
+      });
+    }
     
     res.json({ success: true });
   } catch (error) {
@@ -1346,6 +1353,35 @@ app.post('/api/kick-player', async (req, res) => {
     res.status(500).json({ error: 'Failed to kick player' });
   }
 });
+
+// Add a cleanup interval to check for stale connections
+setInterval(() => {
+  const now = Date.now();
+  const staleThreshold = 30000; // 30 seconds (3 missed heartbeats)
+  
+  for (const [key, lastHeartbeat] of playerHeartbeats.entries()) {
+    if (now - lastHeartbeat > staleThreshold) {
+      const [roomId, playerName] = key.split('-');
+      console.log(`No heartbeat from ${playerName} in room ${roomId} for ${staleThreshold}ms, cleaning up`);
+      
+      const room = activeRooms.get(roomId);
+      if (room) {
+        cleanupPlayer(roomId, playerName);
+        
+        // Notify remaining players
+        pusher.trigger(`room-${roomId}`, 'player-left', {
+          playerName,
+          remainingPlayers: room.players,
+          gameState: room.gameState,
+          wasDisconnected: true,
+          timestamp: now
+        }).catch(console.error);
+      }
+      
+      playerHeartbeats.delete(key);
+    }
+  }
+}, 10000); // Check every 10 seconds
 
 app.listen(3001, () => {
   console.log('Server running on port 3001');

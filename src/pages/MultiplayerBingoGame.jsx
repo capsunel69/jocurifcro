@@ -894,6 +894,57 @@ function MultiplayerBingoGame() {
 
     let timeoutId;
     let isClosing = false;
+    let lastActiveTimestamp = Date.now();
+
+    // Add heartbeat to regularly update server about our presence
+    const sendHeartbeat = async () => {
+      try {
+        await fetch(`${API_BASE_URL}/api/update-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            roomId, 
+            playerName,
+            status: 'active',
+            timestamp: Date.now()
+          })
+        });
+        lastActiveTimestamp = Date.now();
+      } catch (error) {
+        console.error('Heartbeat failed:', error);
+      }
+    };
+
+    // Start heartbeat interval
+    const heartbeatInterval = setInterval(sendHeartbeat, 15000); // Every 15 seconds
+
+    // Handle visibility change with heartbeat awareness
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'hidden' && !isClosing) {
+        // User switched tabs or minimized
+        if (roomId && playerName) {
+          try {
+            await fetch(`${API_BASE_URL}/api/update-status`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                roomId, 
+                playerName,
+                status: 'away',
+                timestamp: Date.now()
+              })
+            });
+          } catch (error) {
+            console.error('Error updating away status:', error);
+          }
+        }
+      } else if (document.visibilityState === 'visible') {
+        // User came back
+        if (roomId && playerName) {
+          sendHeartbeat(); // Immediate heartbeat when becoming visible
+        }
+      }
+    };
 
     // Handle actual page/browser closure
     const handleBeforeUnload = () => {
@@ -901,61 +952,28 @@ function MultiplayerBingoGame() {
       // Use sendBeacon for more reliable delivery during page unload
       navigator.sendBeacon(
         `${API_BASE_URL}/api/exit-room`,
-        JSON.stringify({ roomId, playerName })
+        JSON.stringify({ 
+          roomId, 
+          playerName,
+          timestamp: Date.now()
+        })
       );
     };
 
-    // Handle visibility change
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'hidden' && !isClosing) {
-        // User switched tabs or minimized, but didn't close
-        // We can optionally notify other players that this player is "away"
-        if (roomId && playerName) {
-          fetch(`${API_BASE_URL}/api/update-status`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              roomId, 
-              playerName,
-              status: 'away'
-            })
-          }).catch(console.error);
-        }
-      } else if (document.visibilityState === 'visible') {
-        // User came back
-        if (roomId && playerName) {
-          fetch(`${API_BASE_URL}/api/update-status`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              roomId, 
-              playerName,
-              status: 'active'
-            })
-          }).catch(console.error);
-        }
-      }
-    };
-
-    // Handle actual page hide/unload
-    const handlePageHide = (e) => {
-      if (!e.persisted) {
-        // Page is being fully unloaded
-        isClosing = true;
-        handleBeforeUnload();
-      }
-    };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('pagehide', handleBeforeUnload);
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('unload', handleBeforeUnload);
 
+    // Initial heartbeat
+    sendHeartbeat();
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('pagehide', handleBeforeUnload);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('unload', handleBeforeUnload);
+      clearInterval(heartbeatInterval);
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
