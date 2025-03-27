@@ -51,9 +51,9 @@ const Header = () => {
                     transition="transform 0.2s"
                 >
                     <Image 
-                        src="/fpc.png" 
+                        src="/android-chrome-192x192.png" 
                         alt="Bingo Logo" 
-                        h="40px" 
+                        h="45px" 
                         transition="transform 0.2s"
                         _hover={{ transform: 'scale(1.05)' }}
                     />

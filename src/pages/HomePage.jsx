@@ -65,7 +65,7 @@ function HomePage() {
     {
       title: "Bingo Multiplayer",
       description: "Accepta provocarea si joaca Bingo alaturi de prieteni intr-o experienta multiplayer captivanta si amuzanta!",
-      image: "/images/bingo-multiplayer.jpg",
+      image: "/images/bingo-multiplayer.webp",
       icon: FaDice,
       path: "/multiplayer-bingo",
       gradient: "linear(to-r, green.400, teal.400)"
@@ -73,7 +73,7 @@ function HomePage() {
     {
       title: "Bingo",
       description: "Ghiceste fotbalistii legendari si actuali intr-un joc captivant de bingo care iti pune la incercare cunostintele despre fotbal!",
-      image: "/images/bingo game.jpg",
+      image: "/images/bingo game.webp",
       icon: FaDice,
       path: "/bingo",
       gradient: "linear(to-r, yellow.400, orange.400)"
