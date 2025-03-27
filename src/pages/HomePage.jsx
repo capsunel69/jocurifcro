@@ -30,7 +30,9 @@ const GameCard = ({ game, onPlay, priority }) => (
       w="full"
       objectFit="cover"
       loading={priority ? "eager" : "lazy"}
-      priority={priority}
+      sizes="(max-width: 768px) 100vw, 33vw"
+      width={400}
+      height={240}
     />
     <Box p={8}>
       <HStack spacing={4} mb={4}>
@@ -68,6 +70,8 @@ function HomePage() {
       title: "Bingo Multiplayer",
       description: "Accepta provocarea si joaca Bingo alaturi de prieteni intr-o experienta multiplayer captivanta si amuzanta!",
       image: "/images/bingo-multiplayer.webp",
+      width: 400,
+      height: 240,
       icon: FaDice,
       path: "/multiplayer-bingo",
       gradient: "linear(to-r, green.400, teal.400)"

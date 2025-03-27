@@ -27,20 +27,20 @@
   <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
   <title>Bingo Fotbal Comedie</title>
 
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-94Z3TXEH8E"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag() { dataLayer.push(arguments); }
-    gtag('js', new Date());
-    gtag('config', 'G-94Z3TXEH8E');
-  </script>
-
-
 </head>
 
 <body>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
+  <!-- Move GA script to bottom of body and add defer -->
+  <script defer src="https://www.googletagmanager.com/gtag/js?id=G-94Z3TXEH8E"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    // Disable automatic page views to prevent duplicate events
+    gtag('config', 'G-94Z3TXEH8E', { send_page_view: false });
+  </script>
 </body>
 
 </html>
