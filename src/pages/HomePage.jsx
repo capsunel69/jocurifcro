@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { FaDice, FaUserSecret, FaArrowRight } from 'react-icons/fa'
 
 // New GameCard component
-const GameCard = ({ game, onPlay }) => (
+const GameCard = ({ game, onPlay, priority }) => (
   <Box
     bg="blackAlpha.400"
     borderRadius="2xl"
@@ -29,6 +29,8 @@ const GameCard = ({ game, onPlay }) => (
       h="240px"
       w="full"
       objectFit="cover"
+      loading={priority ? "eager" : "lazy"}
+      priority={priority}
     />
     <Box p={8}>
       <HStack spacing={4} mb={4}>
@@ -127,6 +129,7 @@ function HomePage() {
                 key={index}
                 game={game}
                 onPlay={navigate}
+                priority={index === 0}
               />
             ))}
           </SimpleGrid>
