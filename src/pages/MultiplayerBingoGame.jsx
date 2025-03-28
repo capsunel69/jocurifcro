@@ -115,6 +115,9 @@ function MultiplayerBingoGame() {
   // Add this state near your other state declarations
   const [hasHost, setHasHost] = useState(true)
 
+  // Add this state near your other state declarations
+  const [gameOverState, setGameOverState] = useState(null);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const rid = params.get('roomId')
@@ -133,7 +136,7 @@ function MultiplayerBingoGame() {
       channel.bind('game-started', (data) => {
         console.log('Game started event received:', data);
         
-        // Reset game state
+        // Reset game state including gameOverState
         setValidSelections([]);
         setSelectedCells([]);
         setUsedPlayers([]);
@@ -144,6 +147,7 @@ function MultiplayerBingoGame() {
         setAllPlayersFinished(false);
         setPlayerScores({});
         setFinishedPlayers([]);
+        setGameOverState(null); // Clear the game over state when starting new game
         
         // Set new game data
         setCategories(data.gameData.categories);
@@ -323,35 +327,28 @@ function MultiplayerBingoGame() {
       })
 
       channel.bind('player-finished', (data) => {
-        console.log('Player finished event received:', data)
+        console.log('Player finished event received:', data);
         
-        // Set the score from the server once and for all
+        // Set the score from the server
         if (data.finalScore !== undefined) {
-          setPlayerScores(prev => {
-            // Only update if the score is different
-            if (prev[data.playerName] !== data.finalScore) {
-              console.log(`Setting final score for ${data.playerName} to ${data.finalScore}`)
-              return {
-                ...prev,
-                [data.playerName]: data.finalScore
-              }
-            }
-            return prev
-          })
+          setPlayerScores(prev => ({
+            ...prev,
+            [data.playerName]: data.finalScore
+          }));
         }
         
         // Add to finished players if not already there
         if (!finishedPlayers.includes(data.playerName)) {
-          console.log(`Adding ${data.playerName} to finished players`);
           setFinishedPlayers(prev => [...prev, data.playerName]);
         }
         
-        // Check if all players have finished
-        const allFinished = [...players.map(p => p.name)]
-          .every(name => [...finishedPlayers, data.playerName].includes(name));
+        // Update game over state if provided
+        if (data.gameOverState) {
+          setGameOverState(data.gameOverState);
+        }
         
-        if (allFinished) {
-          console.log('All players have finished');
+        // Check if all players have finished
+        if (data.allPlayersFinished) {
           setAllPlayersFinished(true);
         }
       })
@@ -481,6 +478,14 @@ function MultiplayerBingoGame() {
             ...prev,
             [data.playerName]: data.status
           }));
+        }
+      });
+
+      // Add this new event handler
+      channel.bind('game-state-update', (data) => {
+        console.log('Game state update received:', data);
+        if (data.gameOverState) {
+          setGameOverState(data.gameOverState);
         }
       });
 
@@ -1758,17 +1763,24 @@ function MultiplayerBingoGame() {
 
   // Render game over screen immediately when isGameOver is true
   if (isGameOver || gameState === 'finished') {
-    // Sort players by score (highest first) and break ties alphabetically
-    const rankedPlayers = [...players].sort((a, b) => {
-      const scoreA = playerScores[a.name] || 0;
-      const scoreB = playerScores[b.name] || 0;
+    // Combine active players with disconnected players from gameOverState
+    const allPlayers = [...players];
+    if (gameOverState) {
+      gameOverState.players.forEach(player => {
+        if (!allPlayers.some(p => p.name === player.name)) {
+          allPlayers.push(player);
+        }
+      });
+    }
+
+    // Sort players by score
+    const rankedPlayers = allPlayers.sort((a, b) => {
+      const scoreA = (gameOverState?.scores[a.name] || playerScores[a.name] || 0);
+      const scoreB = (gameOverState?.scores[b.name] || playerScores[b.name] || 0);
       
-      // Sort by score first (descending)
       if (scoreB !== scoreA) {
         return scoreB - scoreA;
       }
-      
-      // If scores are tied, sort alphabetically by name
       return a.name.localeCompare(b.name);
     });
 
@@ -1853,6 +1865,9 @@ function MultiplayerBingoGame() {
                   // Get player status - but force 'active' if it's the current player viewing
                   const playerStatus = isCurrentPlayer ? 'active' : playerStatuses[player.name];
                   
+                  const isDisconnected = gameOverState?.players.find(p => 
+                    p.name === player.name)?.disconnected || false;
+                  
                   return (
                     <HStack
                       key={player.name}
@@ -1880,8 +1895,12 @@ function MultiplayerBingoGame() {
                         </Text>
                       </HStack>
                       <HStack spacing={3}>
-                        <Text color="white" fontWeight="bold">{score} matches</Text>
-                        {playerStatus === 'away' && !isCurrentPlayer ? (
+                        <Text color="white" fontWeight="bold">
+                          {gameOverState?.scores[player.name] || playerScores[player.name] || 0} matches
+                        </Text>
+                        {isDisconnected ? (
+                          <Badge colorScheme="red">Disconnected</Badge>
+                        ) : playerStatus === 'away' && !isCurrentPlayer ? (
                           <Badge colorScheme="yellow">Away</Badge>
                         ) : finishedPlayers.includes(player.name) ? (
                           <Badge colorScheme="green">Finished</Badge>

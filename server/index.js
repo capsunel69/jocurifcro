@@ -82,6 +82,9 @@ const roomTimeouts = new Map(); // Track timeouts for empty rooms
 // Add this near the top with other state tracking
 const playerHeartbeats = new Map(); // Track last heartbeat time for each player
 
+// Add this near the top with other state tracking
+const gameOverStates = new Map(); // Track game over states for each room
+
 // Add this function to handle connection status
 function updatePlayerConnection(roomId, playerName, isConnected, timestamp = Date.now()) {
   const key = `${roomId}-${playerName}`;
@@ -233,30 +236,33 @@ app.post('/api/start-game', async (req, res) => {
     return res.status(404).json({ error: 'Room not found' });
   }
 
-  // Check if all players are ready
-  const allPlayersReady = room.players.every(player => player.isReady);
-  if (!allPlayersReady) {
-    return res.status(400).json({ error: 'Not all players are ready' });
-  }
-
-  // Reset ready status for all players when game starts
-  room.players.forEach(player => {
-    player.isReady = false;
-  });
-
-  // Debug the current state
-  console.log(`Starting game in room ${roomId} with ${room.players.length} players`);
-  console.log(`Room state: gameState=${room.gameState}, hasCurrentGame=${!!room.currentGame}`);
-  
-  // Check if there are enough players
-  if (room.players.length < 2 || room.players.length > 5) {
-    console.log(`Invalid player count: ${room.players.length}`);
-    return res.status(400).json({ 
-      error: 'Game requires 2-5 players to start' 
-    });
-  }
-
   try {
+    // Clear any previous game over state when starting new game
+    gameOverStates.delete(roomId);
+
+    // Check if all players are ready
+    const allPlayersReady = room.players.every(player => player.isReady);
+    if (!allPlayersReady) {
+      return res.status(400).json({ error: 'Not all players are ready' });
+    }
+
+    // Reset ready status for all players when game starts
+    room.players.forEach(player => {
+      player.isReady = false;
+    });
+
+    // Debug the current state
+    console.log(`Starting game in room ${roomId} with ${room.players.length} players`);
+    console.log(`Room state: gameState=${room.gameState}, hasCurrentGame=${!!room.currentGame}`);
+    
+    // Check if there are enough players
+    if (room.players.length < 2 || room.players.length > 5) {
+      console.log(`Invalid player count: ${room.players.length}`);
+      return res.status(400).json({ 
+        error: 'Game requires 2-5 players to start' 
+      });
+    }
+
     // Get random game card
     const gameCard = getRandomCard(room);
     
@@ -710,31 +716,40 @@ app.post('/api/player-finished', async (req, res) => {
   }
 
   try {
-    // First verify the player is still in the room
-    const playerInRoom = room.players.some(p => p.name === playerName);
-    if (!playerInRoom) {
-      console.log(`Player ${playerName} not found in room ${roomId}, cleaning up state`);
-      // Clean up any lingering state for this player
-      const finishedKey = `${roomId}-${playerName}`;
-      finishedPlayers.delete(finishedKey);
-      if (room.currentGame?.playerStates) {
-        room.currentGame.playerStates.delete(playerName);
+    // Store player state in game over state
+    let gameOverState = gameOverStates.get(roomId) || { players: [], scores: {} };
+    const player = room.players.find(p => p.name === playerName);
+    
+    if (player) {
+      // Only add if not already present
+      if (!gameOverState.players.some(p => p.name === playerName)) {
+        gameOverState.players.push({
+          ...player,
+          disconnected: disconnectedPlayers.has(`${roomId}-${playerName}`)
+        });
       }
-      return res.status(400).json({ error: 'Player not in room' });
+      
+      // Store score
+      if (room.currentGame?.playerStates) {
+        const playerState = room.currentGame.playerStates.get(playerName);
+        if (playerState?.validSelections) {
+          gameOverState.scores[playerName] = playerState.validSelections.length;
+        }
+      }
+      
+      gameOverStates.set(roomId, gameOverState);
     }
 
     const finishedKey = `${roomId}-${playerName}`;
     if (finishedPlayers.has(finishedKey)) {
-      console.log(`Player ${playerName} already finished, ignoring duplicate request`);
       return res.json({ success: true, alreadyFinished: true });
     }
 
     finishedPlayers.add(finishedKey);
     const playerState = room.currentGame?.playerStates.get(playerName);
     const finalScore = playerState?.validSelections?.length || 0;
-    console.log(`Player ${playerName} finished with ${finalScore} matches`);
 
-    // Check if all remaining players have finished
+    // Check if all players have finished
     const allPlayersFinished = room.players.every(player => {
       const key = `${roomId}-${player.name}`;
       return finishedPlayers.has(key);
@@ -743,7 +758,8 @@ app.post('/api/player-finished', async (req, res) => {
     await pusher.trigger(`room-${roomId}`, 'player-finished', {
       playerName,
       finalScore,
-      allPlayersFinished
+      allPlayersFinished,
+      gameOverState: gameOverStates.get(roomId) // Include game over state
     });
 
     res.json({ success: true });
@@ -863,7 +879,7 @@ app.post('/api/exit-room', async (req, res) => {
   }
 });
 
-// Update the reset-game endpoint to preserve statuses
+// Update the reset-game endpoint to clear game over state
 app.post('/api/reset-game', async (req, res) => {
   const { roomId } = req.body;
   console.log(`\n=== Attempting to reset game in room ${roomId} ===`);
@@ -874,6 +890,9 @@ app.post('/api/reset-game', async (req, res) => {
       console.log(`Room ${roomId} not found`);
       return res.status(404).json({ error: 'Room not found' });
     }
+
+    // Clear game over state for this room
+    gameOverStates.delete(roomId);
 
     // Store current statuses before reset
     const currentStatuses = new Map();
@@ -986,7 +1005,7 @@ function handleEmptyRoom(roomId) {
   }
 }
 
-// Update the cleanupPlayer function to properly reset room state
+// Update the cleanupPlayer function to better handle disconnections
 function cleanupPlayer(roomId, playerName) {
   const room = activeRooms.get(roomId);
   if (!room) {
@@ -995,6 +1014,40 @@ function cleanupPlayer(roomId, playerName) {
   }
 
   console.log(`Cleaning up player ${playerName} from room ${roomId}`);
+
+  // If game is in progress or finished, store the player's state
+  if (room.gameState === 'playing' || room.gameState === 'finished') {
+    // Get or initialize game over state for this room
+    let gameOverState = gameOverStates.get(roomId) || { players: [], scores: {} };
+    
+    // Find player's data
+    const player = room.players.find(p => p.name === playerName);
+    if (player) {
+      // Store player data if not already stored
+      if (!gameOverState.players.some(p => p.name === playerName)) {
+        gameOverState.players.push({
+          ...player,
+          disconnected: true
+        });
+      }
+      
+      // Store score if available
+      if (room.currentGame?.playerStates) {
+        const playerState = room.currentGame.playerStates.get(playerName);
+        if (playerState?.validSelections) {
+          gameOverState.scores[playerName] = playerState.validSelections.length;
+        }
+      }
+      
+      gameOverStates.set(roomId, gameOverState);
+
+      // Notify all players about the updated game over state
+      pusher.trigger(`room-${roomId}`, 'game-state-update', {
+        gameOverState,
+        timestamp: Date.now()
+      }).catch(console.error);
+    }
+  }
 
   // Remove player from the room's players array
   room.players = room.players.filter(p => p.name !== playerName);
