@@ -139,7 +139,7 @@ function MultiplayerBingoGame() {
   // Update the scroll function to be more explicit
   const scrollToChat = useCallback(() => {
     if (chatRef.current) {
-      const yOffset = -50; // Add some offset from the top if needed
+      const yOffset = -150; // Add some offset from the top if needed
       const y = chatRef.current.getBoundingClientRect().top + window.pageYOffset + yOffset;
       window.scrollTo({ top: y, behavior: 'smooth' });
       setUnreadCount(0); // Reset unread count when manually scrolling to chat
