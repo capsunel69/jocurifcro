@@ -12,7 +12,7 @@ import {
   HStack,
   useOutsideClick
 } from '@chakra-ui/react'
-import { FaChevronUp, FaChevronDown } from 'react-icons/fa'
+import { FaChevronUp, FaChevronDown, FaPaperPlane } from 'react-icons/fa'
 import data from '@emoji-mart/data'
 import Picker from '@emoji-mart/react'
 import MpFloatingChatButton from './mpFloatingChatButton'
@@ -276,6 +276,8 @@ function MpChat({ roomId, playerName, pusherChannel, variant = 'floating', onNew
                   colorScheme="blue"
                   size="sm"
                   h="40px"
+                  width="150px"
+                  leftIcon={<FaPaperPlane />}
                 >
                   Send
                 </Button>
@@ -381,6 +383,7 @@ function MpChat({ roomId, playerName, pusherChannel, variant = 'floating', onNew
               colorScheme="blue"
               size="sm"
               h="40px"
+              leftIcon={<FaPaperPlane />}
             >
               Send
             </Button>
