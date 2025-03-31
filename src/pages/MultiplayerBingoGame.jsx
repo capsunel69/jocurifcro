@@ -1375,6 +1375,7 @@ function MultiplayerBingoGame() {
         backgroundImage="url('/images/bg-pattern-dark.png')"
         backgroundSize="cover"
         py={8}
+        px={2}
       >
         <Container maxW="container.md">
           <VStack spacing={8}>
@@ -1690,6 +1691,7 @@ function MultiplayerBingoGame() {
         backgroundImage="url('/images/bg-pattern-dark.png')"
         backgroundSize="cover"
         py={8}
+        px={2}
       >
         <Container maxW="container.lg">
           <VStack spacing={6}>
@@ -1819,6 +1821,7 @@ function MultiplayerBingoGame() {
         left={0}
         right={0}
         bottom={0}
+        px={2}
         bg="rgba(0, 0, 0, 0.9)"
         backdropFilter="blur(8px)"
         zIndex={1000}
@@ -1959,6 +1962,9 @@ function MultiplayerBingoGame() {
                         ? '0 4px 12px rgba(72, 187, 120, 0.4)'
                         : '0 4px 12px rgba(229, 62, 62, 0.4)'
                     }}
+                    whiteSpace="normal"
+                    textAlign="center"
+                    py={2}
                   >
                     {unfinishedCount === 0
                       ? 'Start New Game' 
