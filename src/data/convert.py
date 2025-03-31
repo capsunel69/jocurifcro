@@ -3,7 +3,7 @@ import json
 import re
 
 # Base ID constant - change this to modify all IDs
-BASE_ID = 1002
+BASE_ID = 1003
 
 def get_category_type(column_name):
     """Determine category type based on column prefix."""
@@ -135,4 +135,4 @@ def convert_csv_to_json(csv_path):
         json.dump(json_data, f, indent=4, ensure_ascii=False)
 
 if __name__ == "__main__":
-    convert_csv_to_json("Bingo Cards - Fotbal Comedie - Bingo Card #2.csv")
+    convert_csv_to_json("Bingo Cards - Fotbal Comedie - Bingo Card #3.csv")
