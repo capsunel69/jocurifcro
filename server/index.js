@@ -1449,6 +1449,37 @@ setInterval(() => {
   }
 }, 10000); // Check every 10 second
 
+// Add new endpoint for chat messages
+app.post('/api/send-message', async (req, res) => {
+  const { roomId, playerName, message } = req.body;
+  
+  try {
+    // Validate room exists
+    const room = activeRooms.get(roomId);
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    // Validate player is in the room
+    const player = room.players.find(p => p.name === playerName);
+    if (!player) {
+      return res.status(403).json({ error: 'Player not in room' });
+    }
+
+    // Broadcast message to room
+    await pusher.trigger(`room-${roomId}`, 'chat-message', {
+      playerName,
+      message,
+      timestamp: Date.now()
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error sending chat message:', error);
+    res.status(500).json({ error: 'Failed to send message' });
+  }
+});
+
 app.listen(3001, () => {
   console.log('Server running on port 3001');
 }); 

@@ -20,6 +20,7 @@ import MpTimer from '../components/bingoMultiplayer/mpTimer'
 import MpGameModeSelect from '../components/bingoMultiplayer/mpGameModeSelect'
 import pusher from '../services/pusher'
 import { FaCopy } from 'react-icons/fa'
+import MpChat from '../components/bingoMultiplayer/mpChat'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -118,6 +119,9 @@ function MultiplayerBingoGame() {
   // Add this state near your other state declarations
   const [gameOverState, setGameOverState] = useState(null);
 
+  // First, add this near the top of your component where other state variables are defined
+  const [chatChannel, setChatChannel] = useState(null);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const rid = params.get('roomId')
@@ -132,6 +136,7 @@ function MultiplayerBingoGame() {
   useEffect(() => {
     if (roomId) {
       const channel = pusher.subscribe(`room-${roomId}`)
+      setChatChannel(channel); // Store the channel for chat
       
       channel.bind('game-started', (data) => {
         console.log('Game started event received:', data);
@@ -1651,6 +1656,26 @@ function MultiplayerBingoGame() {
                   </Box>
                 )}
               </VStack>
+            </Box>
+
+            {/* Add chat in a new container below the waiting room box */}
+            <Box
+              bg="rgba(0, 0, 0, 0.4)"
+              p={4}
+              borderRadius="xl"
+              backdropFilter="blur(10px)"
+              border="1px solid rgba(255,255,255,0.1)"
+              w="full"
+              maxW="650px"
+              minH="400px"
+              position="relative"
+            >
+              <MpChat
+                roomId={roomId}
+                playerName={playerName}
+                pusherChannel={chatChannel}
+                variant="embedded"
+              />
             </Box>
           </VStack>
         </Container>
