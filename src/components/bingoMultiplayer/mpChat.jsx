@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   Box,
   VStack,
@@ -15,14 +15,16 @@ import {
 import { FaChevronUp, FaChevronDown } from 'react-icons/fa'
 import data from '@emoji-mart/data'
 import Picker from '@emoji-mart/react'
+import MpFloatingChatButton from './mpFloatingChatButton'
 
-function MpChat({ roomId, playerName, pusherChannel, variant = 'floating' }) {
+function MpChat({ roomId, playerName, pusherChannel, variant = 'floating', onNewMessage }) {
   const [messages, setMessages] = useState([])
   const [inputMessage, setInputMessage] = useState('')
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const messagesEndRef = useRef(null)
   const emojiPickerRef = useRef(null)
   const { isOpen, onToggle } = useDisclosure({ defaultIsOpen: true })
+  const chatContainerRef = useRef(null)
   
   useOutsideClick({
     ref: emojiPickerRef,
@@ -30,7 +32,10 @@ function MpChat({ roomId, playerName, pusherChannel, variant = 'floating' }) {
   })
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    const messagesContainer = messagesEndRef.current?.parentElement;
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
   }
 
   useEffect(() => {
@@ -43,6 +48,12 @@ function MpChat({ roomId, playerName, pusherChannel, variant = 'floating' }) {
           }
           return newMessages
         })
+        
+        if (onNewMessage) {
+          onNewMessage()
+        }
+
+        scrollToBottom()
       })
 
       pusherChannel.bind('player-joined', (data) => {
@@ -83,11 +94,7 @@ function MpChat({ roomId, playerName, pusherChannel, variant = 'floating' }) {
         pusherChannel.unbind('player-left')
       }
     }
-  }, [pusherChannel])
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+  }, [pusherChannel, onNewMessage])
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return
@@ -174,107 +181,109 @@ function MpChat({ roomId, playerName, pusherChannel, variant = 'floating' }) {
 
   if (variant === 'embedded') {
     return (
-      <Box h="full">
-        <Flex
-          direction="column"
-          h="full"
-        >
-          {/* Chat Header */}
+      <>
+        <Box h="full" ref={chatContainerRef}>
           <Flex
-            p={2}
-            bg="whiteAlpha.100"
-            borderTopRadius="lg"
-            justify="space-between"
-            align="center"
+            direction="column"
+            h="full"
           >
-            <Text fontWeight="bold" color="white">Room Chat</Text>
-          </Flex>
-
-          {/* Chat Messages */}
-          <Box
-            flex="1"
-            overflowY="auto"
-            p={3}
-            maxH="300px"
-            css={{
-              '&::-webkit-scrollbar': {
-                width: '4px',
-              },
-              '&::-webkit-scrollbar-track': {
-                background: 'transparent',
-              },
-              '&::-webkit-scrollbar-thumb': {
-                background: 'rgba(255,255,255,0.2)',
-                borderRadius: '2px',
-              },
-            }}
-          >
-            {messages.map((msg, idx) => renderMessage(msg, idx))}
-            <div ref={messagesEndRef} />
-          </Box>
-
-          {/* Chat Input */}
-          <Box position="relative">
-            {showEmojiPicker && (
-              <Box
-                ref={emojiPickerRef}
-                position="absolute"
-                bottom="100%"
-                right={0}
-                zIndex={2}
-                mb={2}
-              >
-                <Picker 
-                  data={data} 
-                  onEmojiSelect={onEmojiSelect}
-                  theme="dark"
-                  previewPosition="none"
-                  skinTonePosition="none"
-                />
-              </Box>
-            )}
-            <Flex p={2} bg="whiteAlpha.50">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                mr={2}
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-                minW="40px"
-                h="40px"
-                p={0}
-                _hover={{
-                  bg: 'whiteAlpha.200'
-                }}
-              >
-                <Text fontSize="xl">😊</Text>
-              </Button>
-              <Input
-                placeholder="Type a message..."
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                bg="whiteAlpha.100"
-                border="none"
-                color="white"
-                _placeholder={{ color: 'whiteAlpha.500' }}
-                mr={2}
-                h="40px"
-              />
-              <Button
-                onClick={handleSendMessage}
-                colorScheme="blue"
-                size="sm"
-                h="40px"
-              >
-                Send
-              </Button>
+            {/* Chat Header */}
+            <Flex
+              p={2}
+              bg="whiteAlpha.100"
+              borderTopRadius="lg"
+              justify="space-between"
+              align="center"
+            >
+              <Text fontWeight="bold" color="white">Room Chat</Text>
             </Flex>
-          </Box>
-        </Flex>
-      </Box>
+
+            {/* Chat Messages */}
+            <Box
+              flex="1"
+              overflowY="auto"
+              p={3}
+              maxH="300px"
+              css={{
+                '&::-webkit-scrollbar': {
+                  width: '4px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  background: 'transparent',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  background: 'rgba(255,255,255,0.2)',
+                  borderRadius: '2px',
+                },
+              }}
+            >
+              {messages.map((msg, idx) => renderMessage(msg, idx))}
+              <div ref={messagesEndRef} />
+            </Box>
+
+            {/* Chat Input */}
+            <Box position="relative">
+              {showEmojiPicker && (
+                <Box
+                  ref={emojiPickerRef}
+                  position="absolute"
+                  bottom="100%"
+                  right={0}
+                  zIndex={2}
+                  mb={2}
+                >
+                  <Picker 
+                    data={data} 
+                    onEmojiSelect={onEmojiSelect}
+                    theme="dark"
+                    previewPosition="none"
+                    skinTonePosition="none"
+                  />
+                </Box>
+              )}
+              <Flex p={2} bg="whiteAlpha.50">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  mr={2}
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  minW="40px"
+                  h="40px"
+                  p={0}
+                  _hover={{
+                    bg: 'whiteAlpha.200'
+                  }}
+                >
+                  <Text fontSize="xl">😊</Text>
+                </Button>
+                <Input
+                  placeholder="Type a message..."
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  bg="whiteAlpha.100"
+                  border="none"
+                  color="white"
+                  _placeholder={{ color: 'whiteAlpha.500' }}
+                  mr={2}
+                  h="40px"
+                />
+                <Button
+                  onClick={handleSendMessage}
+                  colorScheme="blue"
+                  size="sm"
+                  h="40px"
+                >
+                  Send
+                </Button>
+              </Flex>
+            </Box>
+          </Flex>
+        </Box>
+      </>
     )
   }
 
@@ -291,6 +300,7 @@ function MpChat({ roomId, playerName, pusherChannel, variant = 'floating' }) {
       borderColor="whiteAlpha.200"
       boxShadow="lg"
       zIndex={100}
+      ref={chatContainerRef}
     >
       {/* Chat Header */}
       <Flex

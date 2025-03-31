@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { 
   Box, 
   Container, 
@@ -21,6 +21,7 @@ import MpGameModeSelect from '../components/bingoMultiplayer/mpGameModeSelect'
 import pusher from '../services/pusher'
 import { FaCopy } from 'react-icons/fa'
 import MpChat from '../components/bingoMultiplayer/mpChat'
+import MpFloatingChatButton from '../components/bingoMultiplayer/mpFloatingChatButton'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -121,6 +122,35 @@ function MultiplayerBingoGame() {
 
   // First, add this near the top of your component where other state variables are defined
   const [chatChannel, setChatChannel] = useState(null);
+
+  // Add these new states near other state declarations
+  const [unreadCount, setUnreadCount] = useState(0)
+  const chatRef = useRef(null)
+
+  // Update the scroll function to be more explicit
+  const scrollToChat = useCallback(() => {
+    if (chatRef.current) {
+      const yOffset = -50; // Add some offset from the top if needed
+      const y = chatRef.current.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+      setUnreadCount(0); // Reset unread count when manually scrolling to chat
+    }
+  }, [])
+
+  // Update the new message handler to only increment counter
+  const handleNewMessage = useCallback(() => {
+    // Only increment if we're not already at the chat
+    if (chatRef.current) {
+      const rect = chatRef.current.getBoundingClientRect();
+      const isVisible = (
+        rect.top >= 0 &&
+        rect.bottom <= (window.innerHeight || document.documentElement.clientHeight)
+      );
+      if (!isVisible) {
+        setUnreadCount(prev => prev + 1);
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -398,8 +428,8 @@ function MultiplayerBingoGame() {
         if (data.remainingPlayers.length < 2) {
           setGameState('waiting');
           toast({
-            title: "Game Reset",
-            description: "Not enough players to continue. Returning to lobby.",
+            title: "Game Notification",
+            description: "Not enough players to start/continue the game...",
             status: "info",
             duration: 5000,
           });
@@ -1660,8 +1690,9 @@ function MultiplayerBingoGame() {
               </VStack>
             </Box>
 
-            {/* Add chat in a new container below the waiting room box */}
+            {/* Chat section with ref */}
             <Box
+              ref={chatRef}
               bg="rgba(0, 0, 0, 0.4)"
               p={4}
               borderRadius="xl"
@@ -1677,10 +1708,17 @@ function MultiplayerBingoGame() {
                 playerName={playerName}
                 pusherChannel={chatChannel}
                 variant="embedded"
+                onNewMessage={handleNewMessage}
               />
             </Box>
           </VStack>
         </Container>
+
+        {/* Floating chat button outside the container */}
+        <MpFloatingChatButton 
+          unreadCount={unreadCount} 
+          onClick={scrollToChat}
+        />
       </Box>
     );
   }
