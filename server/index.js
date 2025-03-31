@@ -1005,15 +1005,25 @@ function handleEmptyRoom(roomId) {
   }
 }
 
-// Update the cleanupPlayer function to better handle disconnections
+// Update the cleanupPlayer function to properly remove heartbeat tracking
 function cleanupPlayer(roomId, playerName) {
   const room = activeRooms.get(roomId);
   if (!room) {
     console.log(`Room ${roomId} not found during cleanup`);
-    return;
+    return false;
   }
 
   console.log(`Cleaning up player ${playerName} from room ${roomId}`);
+
+  // If player is not in the room, return false
+  if (!room.players.some(p => p.name === playerName)) {
+    console.log(`Player ${playerName} not found in room ${roomId}`);
+    return false;
+  }
+
+  // Remove heartbeat tracking first
+  const heartbeatKey = `${roomId}-${playerName}`;
+  playerHeartbeats.delete(heartbeatKey);
 
   // If game is in progress or finished, store the player's state
   if (room.gameState === 'playing' || room.gameState === 'finished') {
@@ -1082,6 +1092,8 @@ function cleanupPlayer(roomId, playerName) {
   if (room.players.length === 0) {
     handleEmptyRoom(roomId);
   }
+
+  return true;
 }
 
 // Update the cleanupRoom function to clear any pending timeouts
@@ -1420,18 +1432,20 @@ app.post('/api/kick-player', async (req, res) => {
   }
 });
 
-// Add a cleanup interval to check for stale connections
+// Update only the heartbeat interval check
 setInterval(() => {
   const now = Date.now();
-  const staleThreshold = 30000; // 30 seconds (3 missed heartbeats)
+  const staleThreshold = 30000; // 30 seconds
   
   for (const [key, lastHeartbeat] of playerHeartbeats.entries()) {
     if (now - lastHeartbeat > staleThreshold) {
       const [roomId, playerName] = key.split('-');
-      console.log(`No heartbeat from ${playerName} in room ${roomId} for ${staleThreshold}ms, cleaning up`);
       
+      // Check if room and player still exist before cleanup
       const room = activeRooms.get(roomId);
-      if (room) {
+      if (room && room.players.some(p => p.name === playerName)) {
+        console.log(`No heartbeat from ${playerName} in room ${roomId} for ${staleThreshold}ms, cleaning up`);
+        
         cleanupPlayer(roomId, playerName);
         
         // Notify remaining players
@@ -1442,12 +1456,14 @@ setInterval(() => {
           wasDisconnected: true,
           timestamp: now
         }).catch(console.error);
+      } else {
+        // Just remove the heartbeat if room/player doesn't exist
+        console.log(`Removing stale heartbeat for ${playerName} in room ${roomId}`);
+        playerHeartbeats.delete(key);
       }
-      
-      playerHeartbeats.delete(key);
     }
   }
-}, 10000); // Check every 10 second
+}, 10000);
 
 // Add new endpoint for chat messages
 app.post('/api/send-message', async (req, res) => {
