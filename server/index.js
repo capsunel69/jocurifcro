@@ -811,7 +811,7 @@ function resetRoom(roomId) {
   }
 }
 
-// Update the exit-room endpoint to better handle both regular and beacon requests
+// Update the exit-room endpoint to sanitize channel names
 app.post('/api/exit-room', async (req, res) => {
   let roomId, playerName;
   
@@ -869,8 +869,11 @@ app.post('/api/exit-room', async (req, res) => {
       return res.status(404).json({ error: 'Room not found' });
     }
 
+    // Use sanitized channel name for player-specific events
+    const sanitizedChannel = sanitizeChannelName(`room-${roomId}-${playerName}`);
+    
     // Send notification only once
-    await pusher.trigger(`room-${roomId}-${playerName}`, 'force-redirect', {
+    await pusher.trigger(sanitizedChannel, 'force-redirect', {
       message: 'You have been disconnected from the room',
       timestamp: Date.now()
     });
@@ -886,7 +889,6 @@ app.post('/api/exit-room', async (req, res) => {
     // Use our improved cleanupPlayer that handles host reassignment
     cleanupPlayer(roomId, playerName);
 
-    // Remove the special "host left" room closure logic and replace with:
     // Only close the room if it's completely empty
     if (room.players.length === 0) {
       console.log('Room is empty, closing room');
