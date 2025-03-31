@@ -1199,6 +1199,7 @@ function MultiplayerBingoGame() {
         backgroundImage="url('/images/bg-pattern-dark.png')"
         backgroundSize="cover"
         py={10}
+        px={2}
         overflow="auto"
       >
         <Container maxW="container.md">
