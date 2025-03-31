@@ -40,6 +40,8 @@ function MpChat({ roomId, playerName, pusherChannel, variant = 'floating', onNew
 
   useEffect(() => {
     if (pusherChannel) {
+      const leftPlayerNotifications = new Set();
+      
       pusherChannel.bind('chat-message', (data) => {
         setMessages(prev => {
           const newMessages = [...prev, data]
@@ -71,27 +73,37 @@ function MpChat({ roomId, playerName, pusherChannel, variant = 'floating', onNew
         })
       })
 
-      pusherChannel.bind('player-left', (data) => {
-        setMessages(prev => {
-          const systemMessage = {
-            type: 'system',
-            message: `${data.playerName} has left the room`,
-            timestamp: Date.now()
-          }
-          const newMessages = [...prev, systemMessage]
-          if (newMessages.length > 8) {
-            return newMessages.slice(-8)
-          }
-          return newMessages
-        })
+      pusherChannel.bind('player-leaving', (data) => {
+        if (!leftPlayerNotifications.has(data.playerName)) {
+          leftPlayerNotifications.add(data.playerName);
+          
+          setTimeout(() => {
+            leftPlayerNotifications.delete(data.playerName);
+          }, 10000);
+          
+          setMessages(prev => {
+            const systemMessage = {
+              type: 'system',
+              message: `${data.playerName} has left the room`,
+              timestamp: Date.now()
+            }
+            const newMessages = [...prev, systemMessage]
+            if (newMessages.length > 8) {
+              return newMessages.slice(-8)
+            }
+            return newMessages
+          })
+        }
       })
+      
+      pusherChannel.unbind('player-left');
     }
 
     return () => {
       if (pusherChannel) {
         pusherChannel.unbind('chat-message')
         pusherChannel.unbind('player-joined')
-        pusherChannel.unbind('player-left')
+        pusherChannel.unbind('player-leaving')
       }
     }
   }, [pusherChannel, onNewMessage])

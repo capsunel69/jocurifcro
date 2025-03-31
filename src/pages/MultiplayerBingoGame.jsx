@@ -127,6 +127,15 @@ function MultiplayerBingoGame() {
   const [unreadCount, setUnreadCount] = useState(0)
   const chatRef = useRef(null)
 
+  // Add this state to track the last host change notification time
+  const [lastHostChangeNotification, setLastHostChangeNotification] = useState(0);
+
+  // Add another state to track player leaving notifications
+  const [lastPlayerLeaveNotification, setLastPlayerLeaveNotification] = useState({
+    playerName: null,
+    timestamp: 0
+  });
+
   // Update the scroll function to be more explicit
   const scrollToChat = useCallback(() => {
     if (chatRef.current) {
@@ -411,35 +420,26 @@ function MultiplayerBingoGame() {
         console.log('Player left event received:', data);
         setPlayers(data.remainingPlayers || []);
         
+        // Check if we recently showed a notification for this player
+        const now = Date.now();
+        const isSamePlayer = data.playerName === lastPlayerLeaveNotification.playerName;
+        const timeSinceLastNotification = now - lastPlayerLeaveNotification.timestamp;
+        const isDuplicateNotification = isSamePlayer && timeSinceLastNotification < 3000;
+        
+        // Don't show duplicate notification if we recently showed one for this player
+        if (!isDuplicateNotification && data.playerName) {
+          toast({
+            title: "Player Left",
+            description: `${data.playerName} has left the game`,
+            status: "info",
+            duration: 3000,
+            isClosable: true,
+          });
+        }
+        
         // Check if there's a host in the remaining players
         const hostExists = data.remainingPlayers.some(player => player.isHost);
         setHasHost(hostExists);
-        
-        // If host changed, show a notification
-        if (data.hostChanged) {
-          const newHost = data.remainingPlayers.find(player => player.isHost);
-          if (newHost) {
-            toast({
-              title: "Host Changed",
-              description: `${newHost.name} is now the host`,
-              status: "info",
-              duration: 5000,
-              isClosable: true,
-            });
-            
-            // If I'm the new host, update my state
-            if (newHost.name === playerName) {
-              setIsHost(true);
-              toast({
-                title: "You are now the host",
-                description: "You can start new games after this one is complete",
-                status: "info",
-                duration: 5000,
-                isClosable: true,
-              });
-            }
-          }
-        }
         
         if (data.remainingPlayers.length < 1) {
           // If no players left, redirect to home
@@ -451,6 +451,10 @@ function MultiplayerBingoGame() {
       channel.bind('new-host-assigned', (data) => {
         console.log('New host assigned:', data);
         
+        const now = Date.now();
+        const timeSinceLastNotification = now - lastHostChangeNotification;
+        const isDuplicateNotification = timeSinceLastNotification < 2000; // Within 2 seconds
+        
         // Update the players list to reflect new host status
         setPlayers(prevPlayers => prevPlayers.map(player => ({
           ...player,
@@ -460,22 +464,30 @@ function MultiplayerBingoGame() {
         // Update local host status if I'm the new host
         if (data.newHostName === playerName) {
           setIsHost(true);
-          toast({
-            title: "You are now the host",
-            description: "You can start new games after this one is complete",
-            status: "info",
-            duration: 5000,
-            isClosable: true,
-          });
+          
+          // Only show toast if it hasn't been shown recently
+          if (!isDuplicateNotification) {
+            toast({
+              title: "You are now the host",
+              description: "You can start new games after this one is complete",
+              status: "info",
+              duration: 5000,
+              isClosable: true,
+            });
+            setLastHostChangeNotification(now);
+          }
         } else {
-          // Show toast about new host
-          toast({
-            title: "Host Changed",
-            description: `${data.newHostName} is now the host`,
-            status: "info",
-            duration: 5000,
-            isClosable: true,
-          });
+          // Only show toast if it hasn't been shown recently
+          if (!isDuplicateNotification) {
+            toast({
+              title: "Host Changed",
+              description: `${data.newHostName} is now the host`,
+              status: "info",
+              duration: 5000,
+              isClosable: true,
+            });
+            setLastHostChangeNotification(now);
+          }
         }
         
         // Make sure we mark that there is a host
@@ -570,7 +582,7 @@ function MultiplayerBingoGame() {
         }
       });
 
-      // Add this new handler for immediate player removal
+      // Update the player-leaving event handler
       channel.bind('player-leaving', (data) => {
         console.log('Player leaving event received:', data);
         
@@ -578,6 +590,13 @@ function MultiplayerBingoGame() {
         setPlayers(prevPlayers => 
           prevPlayers.filter(player => player.name !== data.playerName)
         );
+        
+        // Track when we showed the notification
+        const now = Date.now();
+        setLastPlayerLeaveNotification({
+          playerName: data.playerName,
+          timestamp: now
+        });
         
         // Show toast notification
         toast({
