@@ -149,6 +149,11 @@ function MpChat({ roomId, playerName, pusherChannel, variant = 'floating', onNew
     }
 
     const isOwnMessage = msg.playerName === playerName
+    const timestamp = new Date(msg.timestamp).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    })
+
     return (
       <Flex
         key={idx}
@@ -172,7 +177,17 @@ function MpChat({ roomId, playerName, pusherChannel, variant = 'floating', onNew
             py={2}
             borderRadius="lg"
           >
-            <Text fontSize="sm">{msg.message}</Text>
+            <VStack spacing={0} align="stretch">
+              <Text fontSize="sm">{msg.message}</Text>
+              <Text
+                fontSize="10px"
+                color="whiteAlpha.600"
+                textAlign="right"
+                mt="2px"
+              >
+                {timestamp}
+              </Text>
+            </VStack>
           </Box>
         </HStack>
       </Flex>
