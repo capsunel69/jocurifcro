@@ -411,30 +411,76 @@ function MultiplayerBingoGame() {
         console.log('Player left event received:', data);
         setPlayers(data.remainingPlayers || []);
         
-        // Check if there's still a host in the remaining players
+        // Check if there's a host in the remaining players
         const hostExists = data.remainingPlayers.some(player => player.isHost);
         setHasHost(hostExists);
         
-        if (!hostExists) {
+        // If host changed, show a notification
+        if (data.hostChanged) {
+          const newHost = data.remainingPlayers.find(player => player.isHost);
+          if (newHost) {
+            toast({
+              title: "Host Changed",
+              description: `${newHost.name} is now the host`,
+              status: "info",
+              duration: 5000,
+              isClosable: true,
+            });
+            
+            // If I'm the new host, update my state
+            if (newHost.name === playerName) {
+              setIsHost(true);
+              toast({
+                title: "You are now the host",
+                description: "You can start new games after this one is complete",
+                status: "info",
+                duration: 5000,
+                isClosable: true,
+              });
+            }
+          }
+        }
+        
+        if (data.remainingPlayers.length < 1) {
+          // If no players left, redirect to home
+          window.location.href = '/multiplayer-bingo';
+        }
+      })
+
+      // Add a new event handler for host reassignment
+      channel.bind('new-host-assigned', (data) => {
+        console.log('New host assigned:', data);
+        
+        // Update the players list to reflect new host status
+        setPlayers(prevPlayers => prevPlayers.map(player => ({
+          ...player,
+          isHost: player.name === data.newHostName
+        })));
+        
+        // Update local host status if I'm the new host
+        if (data.newHostName === playerName) {
+          setIsHost(true);
           toast({
-            title: "Host Left",
-            description: "The host has left the room. Please exit and join a new game.",
-            status: "error",
-            duration: null,
+            title: "You are now the host",
+            description: "You can start new games after this one is complete",
+            status: "info",
+            duration: 5000,
+            isClosable: true,
+          });
+        } else {
+          // Show toast about new host
+          toast({
+            title: "Host Changed",
+            description: `${data.newHostName} is now the host`,
+            status: "info",
+            duration: 5000,
             isClosable: true,
           });
         }
         
-        if (data.remainingPlayers.length < 2) {
-          setGameState('waiting');
-          toast({
-            title: "Game Notification",
-            description: "Not enough players to start/continue the game...",
-            status: "info",
-            duration: 5000,
-          });
-        }
-      })
+        // Make sure we mark that there is a host
+        setHasHost(true);
+      });
 
       // Add/update room-closed event handler
       channel.bind('room-closed', (data) => {
@@ -522,6 +568,25 @@ function MultiplayerBingoGame() {
         if (data.gameOverState) {
           setGameOverState(data.gameOverState);
         }
+      });
+
+      // Add this new handler for immediate player removal
+      channel.bind('player-leaving', (data) => {
+        console.log('Player leaving event received:', data);
+        
+        // Immediately remove player from UI
+        setPlayers(prevPlayers => 
+          prevPlayers.filter(player => player.name !== data.playerName)
+        );
+        
+        // Show toast notification
+        toast({
+          title: "Player Left",
+          description: `${data.playerName} has left the game`,
+          status: "info",
+          duration: 3000,
+          isClosable: true,
+        });
       });
 
       return () => {
@@ -938,16 +1003,51 @@ function MultiplayerBingoGame() {
     }
   };
 
-  // Add this effect to handle browser/tab closure and visibility changes
-  useEffect(() => {
+  // First, define these functions outside the useEffect using useCallback
+  // Add these before the useEffect where they're used
+
+  // Handle heartbeat function
+  const sendHeartbeat = useCallback(async () => {
     if (!roomId || !playerName) return;
+    
+    try {
+      await fetch(`${API_BASE_URL}/api/update-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          roomId, 
+          playerName,
+          status: 'active',
+          timestamp: Date.now()
+        })
+      });
+    } catch (error) {
+      console.error('Heartbeat failed:', error);
+    }
+  }, [roomId, playerName]);
 
-    let timeoutId;
-    let isClosing = false;
-    let lastActiveTimestamp = Date.now();
-
-    // Add heartbeat to regularly update server about our presence
-    const sendHeartbeat = async () => {
+  // Handle visibility change
+  const handleVisibilityChange = useCallback(async () => {
+    if (!roomId || !playerName) return;
+    
+    if (document.visibilityState === 'hidden') {
+      // User switched tabs or minimized
+      try {
+        await fetch(`${API_BASE_URL}/api/update-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            roomId, 
+            playerName,
+            status: 'away',
+            timestamp: Date.now()
+          })
+        });
+      } catch (error) {
+        console.error('Error updating away status:', error);
+      }
+    } else if (document.visibilityState === 'visible') {
+      // User came back - explicitly set status to active
       try {
         await fetch(`${API_BASE_URL}/api/update-status`, {
           method: 'POST',
@@ -956,83 +1056,56 @@ function MultiplayerBingoGame() {
             roomId, 
             playerName,
             status: 'active',
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            forceUpdate: true // Add this flag to force status update
           })
         });
-        lastActiveTimestamp = Date.now();
+        // Immediate heartbeat when becoming visible
+        sendHeartbeat();
       } catch (error) {
-        console.error('Heartbeat failed:', error);
+        console.error('Error updating active status:', error);
       }
-    };
+    }
+  }, [roomId, playerName, sendHeartbeat]);
 
+  // Handle beforeunload
+  const handleBeforeUnload = useCallback(() => {
+    if (!roomId || !playerName) {
+      console.log('Cannot exit: missing roomId or playerName during page unload');
+      return;
+    }
+    
+    // Create proper Content-Type for sendBeacon
+    const blob = new Blob([JSON.stringify({ 
+      roomId, 
+      playerName,
+      timestamp: Date.now()
+    })], {type: 'application/json'});
+    
+    // Use sendBeacon for more reliable delivery during page unload
+    navigator.sendBeacon(`${API_BASE_URL}/api/exit-room`, blob);
+    
+    console.log(`Sending exit beacon for ${playerName} in room ${roomId}`);
+  }, [roomId, playerName]);
+
+  // Then update the useEffect to use these memoized functions
+  useEffect(() => {
+    if (!roomId || !playerName) return;
+
+    let timeoutId;
+    let heartbeatInterval;
+    
     // Start heartbeat interval
-    const heartbeatInterval = setInterval(sendHeartbeat, 15000); // Every 15 seconds
+    heartbeatInterval = setInterval(sendHeartbeat, 15000); // Every 15 seconds
 
-    // Handle visibility change with heartbeat awareness
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'hidden' && !isClosing) {
-        // User switched tabs or minimized
-        if (roomId && playerName) {
-          try {
-            await fetch(`${API_BASE_URL}/api/update-status`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                roomId, 
-                playerName,
-                status: 'away',
-                timestamp: Date.now()
-              })
-            });
-          } catch (error) {
-            console.error('Error updating away status:', error);
-          }
-        }
-      } else if (document.visibilityState === 'visible') {
-        // User came back - explicitly set status to active
-        if (roomId && playerName) {
-          try {
-            await fetch(`${API_BASE_URL}/api/update-status`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                roomId, 
-                playerName,
-                status: 'active',
-                timestamp: Date.now(),
-                forceUpdate: true // Add this flag to force status update
-              })
-            });
-            // Immediate heartbeat when becoming visible
-            sendHeartbeat();
-          } catch (error) {
-            console.error('Error updating active status:', error);
-          }
-        }
-      }
-    };
+    // Initial heartbeat
+    sendHeartbeat();
 
-    // Handle actual page/browser closure
-    const handleBeforeUnload = () => {
-      isClosing = true;
-      // Use sendBeacon for more reliable delivery during page unload
-      navigator.sendBeacon(
-        `${API_BASE_URL}/api/exit-room`,
-        JSON.stringify({ 
-          roomId, 
-          playerName,
-          timestamp: Date.now()
-        })
-      );
-    };
-
+    // Add event listeners
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('pagehide', handleBeforeUnload);
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('unload', handleBeforeUnload);
-
-    // Initial heartbeat
-    sendHeartbeat();
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -1044,26 +1117,43 @@ function MultiplayerBingoGame() {
         clearTimeout(timeoutId);
       }
     };
-  }, [roomId, playerName]);
+  }, [roomId, playerName, handleVisibilityChange, handleBeforeUnload, sendHeartbeat]);
 
-  // Update exit to menu handler
-  const handleExitToMenu = async () => {
+  // Add or update the handleExitToMenu function to ensure proper data is sent
+  const handleExitToMenu = useCallback(async () => {
+    if (!roomId || !playerName) {
+      console.error('Missing roomId or playerName for exit');
+      window.location.href = '/multiplayer-bingo';
+      return;
+    }
+    
+    console.log(`Exiting room ${roomId} as player ${playerName}`);
+    
     try {
-      if (roomId && playerName) {
-        await fetch(`${API_BASE_URL}/api/exit-room`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roomId, playerName })
-        });
-      }
-      // Redirect to home page
+      // First try to notify the server about the exit
+      const response = await fetch(`${API_BASE_URL}/api/exit-room`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          roomId,
+          playerName
+        })
+      });
+      
+      // Log the response for debugging
+      const data = await response.json();
+      console.log('Exit response:', data);
+      
+      // Redirect regardless of response status
       window.location.href = '/multiplayer-bingo';
     } catch (error) {
       console.error('Error exiting room:', error);
-      // Still redirect even if the API call fails
+      // Still redirect if there's an error
       window.location.href = '/multiplayer-bingo';
     }
-  };
+  }, [roomId, playerName]);
 
   // Update game mode selection component to check player count
   const canStartGame = players.length >= 2 && players.length <= 5;
@@ -1417,30 +1507,6 @@ function MultiplayerBingoGame() {
             >
               Waiting Room
             </Heading>
-            
-            {!hasHost && (
-              <Box
-                bg="red.500"
-                color="white"
-                p={4}
-                borderRadius="md"
-                width="100%"
-                textAlign="center"
-              >
-                <VStack spacing={4}>
-                  <Text fontWeight="bold">
-                    The host has left the room
-                  </Text>
-                  <Button
-                    colorScheme="white"
-                    variant="outline"
-                    onClick={handleExitToMenu}
-                  >
-                    Exit to Menu
-                  </Button>
-                </VStack>
-              </Box>
-            )}
             
             <Box
               bg="rgba(0, 0, 0, 0.4)"

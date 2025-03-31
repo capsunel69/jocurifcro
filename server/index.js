@@ -811,71 +811,111 @@ function resetRoom(roomId) {
   }
 }
 
-// Update the exit-room endpoint to be more robust
+// Update the exit-room endpoint to better handle both regular and beacon requests
 app.post('/api/exit-room', async (req, res) => {
-  // Support both JSON and raw body for sendBeacon compatibility
   let roomId, playerName;
   
   try {
-    if (req.headers['content-type'] === 'application/json') {
+    // Handle different content types - could be application/json or text/plain from beacon
+    if (req.headers['content-type'] && req.headers['content-type'].includes('application/json')) {
+      // Standard JSON request
       ({ roomId, playerName } = req.body);
     } else {
+      // Likely a beacon request with raw body
       const rawBody = await new Promise((resolve) => {
         let body = '';
-        req.on('data', chunk => { body += chunk; });
+        req.on('data', chunk => { body += chunk.toString(); });
         req.on('end', () => resolve(body));
       });
-      ({ roomId, playerName } = JSON.parse(rawBody));
+      
+      try {
+        // Try to parse as JSON
+        const parsedBody = JSON.parse(rawBody);
+        roomId = parsedBody.roomId;
+        playerName = parsedBody.playerName;
+      } catch (parseError) {
+        console.error('Failed to parse beacon request body:', parseError);
+        return res.status(400).json({ error: 'Invalid request body format' });
+      }
     }
+  } catch (error) {
+    console.error('Error processing request body:', error);
+    return res.status(400).json({ error: 'Could not process request body' });
+  }
+  
+  // Validate required parameters
+  if (!roomId || !playerName) {
+    console.error('Missing required parameters:', { roomId, playerName });
+    return res.status(400).json({ 
+      error: 'Missing required parameters',
+      receivedParams: { roomId, playerName }
+    });
+  }
+  
+  const exitKey = `${roomId}-${playerName}`;
+  
+  // If player is already exiting, just return success
+  if (exitingPlayers.has(exitKey)) {
+    return res.json({ success: true });
+  }
+  
+  exitingPlayers.add(exitKey);
+  console.log(`\n=== Player ${playerName} exiting room ${roomId} ===`);
 
-    console.log(`\n=== Player ${playerName} exiting room ${roomId} ===`);
-    
+  try {
     const room = activeRooms.get(roomId);
     if (!room) {
-      console.log('Room not found');
+      exitingPlayers.delete(exitKey);
       return res.status(404).json({ error: 'Room not found' });
     }
 
-    const player = room.players.find(p => p.name === playerName);
-    if (!player) {
-      console.log('Player not found in room');
-      return res.status(404).json({ error: 'Player not found' });
-    }
+    // Send notification only once
+    await pusher.trigger(`room-${roomId}-${playerName}`, 'force-redirect', {
+      message: 'You have been disconnected from the room',
+      timestamp: Date.now()
+    });
 
-    // Clean up the player
+    // Small delay to ensure the redirect message is received
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    updatePlayerConnection(roomId, playerName, false);
+    
+    const isHost = room.players.find(p => p.name === playerName)?.isHost;
+    console.log(`${isHost ? 'Host' : 'Regular'} player ${playerName} is exiting`);
+
+    // Use our improved cleanupPlayer that handles host reassignment
     cleanupPlayer(roomId, playerName);
 
-    // If in a game and less than 2 players remain, reset the room
-    if (room.gameState === 'playing' && room.players.length < 2) {
-      console.log('Resetting game due to insufficient players');
-      resetRoom(roomId);
-    }
-
-    try {
-      // Notify remaining players
+    // Remove the special "host left" room closure logic and replace with:
+    // Only close the room if it's completely empty
+    if (room.players.length === 0) {
+      console.log('Room is empty, closing room');
+      activeRooms.delete(roomId);
+      await pusher.trigger(`room-${roomId}`, 'room-closed', {
+        reason: 'Room empty',
+        timestamp: Date.now()
+      });
+    } else {
+      // Tell everyone about the player leaving 
       await pusher.trigger(`room-${roomId}`, 'player-left', {
         playerName,
         remainingPlayers: room.players,
         gameState: room.gameState,
-        wasDisconnected: true,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        // If host left, indicate there was a host change
+        hostChanged: isHost
       });
-    } catch (error) {
-      console.error('Error notifying remaining players:', error);
-      // Continue with exit even if notification fails
     }
 
-    console.log('=== Exit process completed successfully ===');
     res.json({ success: true });
   } catch (error) {
-    console.error('Error during exit process:', error);
-    // Try to send response if we can
-    try {
-      res.status(500).json({ error: 'Failed to exit room' });
-    } catch (e) {
-      // Response might have already been sent or connection closed
-      console.error('Could not send error response:', e);
-    }
+    console.error('Error handling player exit:', error);
+    res.status(500).json({ error: 'Failed to process player exit' });
+  } finally {
+    // Clean up after a delay to prevent race conditions
+    setTimeout(() => {
+      exitingPlayers.delete(exitKey);
+    }, 2000);
   }
 });
 
@@ -1005,7 +1045,7 @@ function handleEmptyRoom(roomId) {
   }
 }
 
-// Update the cleanupPlayer function to properly remove heartbeat tracking
+// Update the cleanupPlayer function to improve player-left notification
 function cleanupPlayer(roomId, playerName) {
   const room = activeRooms.get(roomId);
   if (!room) {
@@ -1021,6 +1061,9 @@ function cleanupPlayer(roomId, playerName) {
     return false;
   }
 
+  // Check if the leaving player is the host before we remove them
+  const isHost = room.players.find(p => p.name === playerName)?.isHost;
+  
   // Remove heartbeat tracking first
   const heartbeatKey = `${roomId}-${playerName}`;
   playerHeartbeats.delete(heartbeatKey);
@@ -1050,16 +1093,26 @@ function cleanupPlayer(roomId, playerName) {
       }
       
       gameOverStates.set(roomId, gameOverState);
-
-      // Notify all players about the updated game over state
-      pusher.trigger(`room-${roomId}`, 'game-state-update', {
-        gameOverState,
-        timestamp: Date.now()
-      }).catch(console.error);
     }
   }
 
-  // Remove player from the room's players array
+  // **** IMPORTANT: Send player-left notification BEFORE removing player ****
+  // This ensures that the client receives proper notification with player still in the list
+  try {
+    // Get a copy of the player for the notification
+    const leavingPlayer = room.players.find(p => p.name === playerName);
+    
+    // Send immediate player-left notification before removing
+    pusher.trigger(`room-${roomId}`, 'player-leaving', {
+      playerName,
+      leavingPlayer,
+      timestamp: Date.now()
+    }).catch(err => console.error('Error sending player-leaving event:', err));
+  } catch (e) {
+    console.error('Error preparing player-leaving notification:', e);
+  }
+
+  // NOW remove player from the room's players array
   room.players = room.players.filter(p => p.name !== playerName);
   
   // Remove player from any game state if exists
@@ -1067,15 +1120,24 @@ function cleanupPlayer(roomId, playerName) {
     room.currentGame.playerStates.delete(playerName);
   }
 
+  // If host left and there are remaining players, assign a new host
+  if (isHost && room.players.length > 0) {
+    console.log(`Host ${playerName} left room ${roomId}, assigning new host`);
+    // Assign the first remaining player as the new host
+    room.players[0].isHost = true;
+    
+    // Notify about the new host
+    pusher.trigger(`room-${roomId}`, 'new-host-assigned', {
+      newHostName: room.players[0].name,
+      timestamp: Date.now()
+    }).catch(console.error);
+  }
+
   // Reset room if insufficient players during game
-  if (room.gameState === 'playing' && room.players.length < 2) {
-    console.log('Resetting room state due to insufficient players');
+  if (room.gameState === 'playing' && room.players.length < 1) {
+    console.log('Resetting room state due to no remaining players');
     room.gameState = 'waiting';
     room.currentGame = null;
-    // Reset ready status for remaining players
-    room.players.forEach(player => {
-      player.isReady = false;
-    });
   }
 
   // Remove from finished players if present
@@ -1091,6 +1153,19 @@ function cleanupPlayer(roomId, playerName) {
   // Check if room is empty and start timeout if needed
   if (room.players.length === 0) {
     handleEmptyRoom(roomId);
+  }
+
+  // Notify about final room state - with updated player list AFTER removal
+  try {
+    pusher.trigger(`room-${roomId}`, 'player-left', {
+      playerName,
+      remainingPlayers: room.players,
+      gameState: room.gameState,
+      timestamp: Date.now(),
+      hostChanged: isHost
+    }).catch(err => console.error('Error sending final player-left notification:', err));
+  } catch (e) {
+    console.error('Error sending final player-left notification:', e);
   }
 
   return true;
@@ -1125,75 +1200,6 @@ function cleanupRoom(roomId) {
 
 // At the top with other Sets
 const exitingPlayers = new Set();
-
-// Modify the exit-room handler
-app.post('/api/exit-room', async (req, res) => {
-  const { roomId, playerName } = req.body;
-  const exitKey = `${roomId}-${playerName}`;
-  
-  // If player is already exiting, just return success
-  if (exitingPlayers.has(exitKey)) {
-    return res.json({ success: true });
-  }
-  
-  exitingPlayers.add(exitKey);
-  console.log(`\n=== Player ${playerName} exiting room ${roomId} ===`);
-
-  try {
-    const room = activeRooms.get(roomId);
-    if (!room) {
-      exitingPlayers.delete(exitKey);
-      return res.status(404).json({ error: 'Room not found' });
-    }
-
-    // Send notification only once
-    await pusher.trigger(`room-${roomId}-${playerName}`, 'force-redirect', {
-      message: 'You have been disconnected from the room',
-      timestamp: Date.now()
-    });
-
-    // Small delay to ensure the redirect message is received
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    updatePlayerConnection(roomId, playerName, false);
-    
-    const isHost = room.players[0]?.name === playerName;
-    console.log(`${isHost ? 'Host' : 'Regular'} player ${playerName} is exiting`);
-
-    cleanupPlayer(roomId, playerName);
-
-    if (isHost) {
-      console.log('Host is exiting, closing room');
-      activeRooms.delete(roomId);
-      await pusher.trigger(`room-${roomId}`, 'room-closed', {
-        reason: 'Host left',
-        timestamp: Date.now()
-      });
-    } else {
-      if (room.gameState === 'playing' && room.players.length < 2) {
-        console.log('Resetting game due to insufficient players');
-        resetRoom(roomId);
-      }
-
-      await pusher.trigger(`room-${roomId}`, 'player-left', {
-        playerName,
-        remainingPlayers: room.players,
-        gameState: room.gameState,
-        timestamp: Date.now()
-      });
-    }
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error handling player exit:', error);
-    res.status(500).json({ error: 'Failed to process player exit' });
-  } finally {
-    // Clean up after a delay to prevent race conditions
-    setTimeout(() => {
-      exitingPlayers.delete(exitKey);
-    }, 2000);
-  }
-});
 
 app.post('/api/skip-player', async (req, res) => {
   const { roomId, playerName, currentPlayerId } = req.body;
