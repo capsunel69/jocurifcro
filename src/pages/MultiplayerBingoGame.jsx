@@ -415,36 +415,31 @@ function MultiplayerBingoGame() {
         });
       })
 
-      // Update the player-left event handler
-      channel.bind('player-left', (data) => {
-        console.log('Player left event received:', data);
-        setPlayers(data.remainingPlayers || []);
+      // Update the player-leaving event handler
+      channel.bind('player-leaving', (data) => {
+        console.log('Player leaving event received:', data);
         
-        // Check if we recently showed a notification for this player
+        // Immediately remove player from UI
+        setPlayers(prevPlayers => 
+          prevPlayers.filter(player => player.name !== data.playerName)
+        );
+        
+        // Track when we showed the notification - Add the message type to track
         const now = Date.now();
-        const isSamePlayer = data.playerName === lastPlayerLeaveNotification.playerName;
-        const timeSinceLastNotification = now - lastPlayerLeaveNotification.timestamp;
-        const isDuplicateNotification = isSamePlayer && timeSinceLastNotification < 3000;
+        setLastPlayerLeaveNotification({
+          playerName: data.playerName,
+          timestamp: now,
+          messageShown: true // Add this flag to indicate we've shown a message
+        });
         
-        // Don't show duplicate notification if we recently showed one for this player
-        if (!isDuplicateNotification && data.playerName) {
-          toast({
-            title: "Player Left",
-            description: `${data.playerName} has left the game`,
-            status: "info",
-            duration: 3000,
-            isClosable: true,
-          });
-        }
-        
-        // Check if there's a host in the remaining players
-        const hostExists = data.remainingPlayers.some(player => player.isHost);
-        setHasHost(hostExists);
-        
-        if (data.remainingPlayers.length < 1) {
-          // If no players left, redirect to home
-          window.location.href = '/multiplayer-bingo';
-        }
+        // Show toast notification
+        toast({
+          title: "Player Left",
+          description: `${data.playerName} has left the game`,
+          status: "info",
+          duration: 3000,
+          isClosable: true,
+        });
       })
 
       // Add a new event handler for host reassignment
@@ -469,7 +464,7 @@ function MultiplayerBingoGame() {
           if (!isDuplicateNotification) {
             toast({
               title: "You are now the host",
-              description: "You can start new games after this one is complete",
+              description: "Host has left so now, you are the patron pe plantatie.",
               status: "info",
               duration: 5000,
               isClosable: true,
@@ -582,30 +577,31 @@ function MultiplayerBingoGame() {
         }
       });
 
-      // Update the player-leaving event handler
-      channel.bind('player-leaving', (data) => {
-        console.log('Player leaving event received:', data);
+      // Then update the player-left event handler to NEVER show player left notifications
+      channel.bind('player-left', (data) => {
+        console.log('Player left event received:', data);
         
-        // Immediately remove player from UI
-        setPlayers(prevPlayers => 
-          prevPlayers.filter(player => player.name !== data.playerName)
-        );
+        // Always update the player list with the server's authoritative list
+        setPlayers(data.remainingPlayers || []);
         
-        // Track when we showed the notification
-        const now = Date.now();
-        setLastPlayerLeaveNotification({
-          playerName: data.playerName,
-          timestamp: now
-        });
+        // Check if there's a host in the remaining players
+        const hostExists = data.remainingPlayers.some(player => player.isHost);
+        setHasHost(hostExists);
         
-        // Show toast notification
-        toast({
-          title: "Player Left",
-          description: `${data.playerName} has left the game`,
-          status: "info",
-          duration: 3000,
-          isClosable: true,
-        });
+        // Handle host change notification if needed
+        if (data.hostChanged) {
+          const newHost = data.remainingPlayers.find(player => player.isHost);
+          if (newHost && newHost.name === playerName) {
+            // If I'm the new host, update state but don't show toast
+            // (new-host-assigned will handle that)
+            setIsHost(true);
+          }
+        }
+        
+        if (data.remainingPlayers.length < 1) {
+          // If no players left, redirect to home
+          window.location.href = '/multiplayer-bingo';
+        }
       });
 
       return () => {
@@ -1987,7 +1983,7 @@ function MultiplayerBingoGame() {
             {/* Leaderboard */}
             <Box
               bg="rgba(255, 255, 255, 0.1)"
-              p={6}
+              p={3}
               borderRadius="xl"
               border="1px solid rgba(255,255,255,0.2)"
             >

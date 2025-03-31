@@ -1443,7 +1443,7 @@ app.post('/api/kick-player', async (req, res) => {
 // Update only the heartbeat interval check
 setInterval(() => {
   const now = Date.now();
-  const staleThreshold = 20000; // 20 seconds
+  const staleThreshold = 15000; // 20 seconds
   
   for (const [key, lastHeartbeat] of playerHeartbeats.entries()) {
     if (now - lastHeartbeat > staleThreshold) {
@@ -1471,7 +1471,7 @@ setInterval(() => {
       }
     }
   }
-}, 10000);
+}, 5000);
 
 // Add new endpoint for chat messages
 app.post('/api/send-message', async (req, res) => {
