@@ -1443,7 +1443,7 @@ app.post('/api/kick-player', async (req, res) => {
 // Update only the heartbeat interval check
 setInterval(() => {
   const now = Date.now();
-  const staleThreshold = 30000; // 30 seconds
+  const staleThreshold = 20000; // 20 seconds
   
   for (const [key, lastHeartbeat] of playerHeartbeats.entries()) {
     if (now - lastHeartbeat > staleThreshold) {
