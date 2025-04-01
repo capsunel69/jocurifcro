@@ -11,7 +11,16 @@ import {
   Badge,
   Input,
   Center,
-  Progress
+  Progress,
+  Grid,
+  Modal, 
+  ModalOverlay, 
+  ModalContent, 
+  ModalHeader, 
+  ModalBody, 
+  ModalCloseButton,
+  IconButton,
+  useDisclosure
 } from '@chakra-ui/react'
 import { MdRefresh, MdShuffle } from 'react-icons/md'
 import MpBingoBoard from '../components/bingoMultiplayer/mpBingoBoard'
@@ -22,6 +31,7 @@ import pusher from '../services/pusher'
 import { FaCopy } from 'react-icons/fa'
 import MpChat from '../components/bingoMultiplayer/mpChat'
 import MpFloatingChatButton from '../components/bingoMultiplayer/mpFloatingChatButton'
+import { QuestionIcon } from '@chakra-ui/icons'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -1326,6 +1336,9 @@ function MultiplayerBingoGame() {
     }
   };
 
+  // Add this near your other state declarations
+  const { isOpen, onOpen, onClose } = useDisclosure()
+
   if (gameState === 'init') {
     return (
       <Box
@@ -1340,34 +1353,66 @@ function MultiplayerBingoGame() {
         <Container maxW="container.md">
           <VStack spacing={8}>
             {/* Hero Section */}
-            <VStack spacing={3}>
+            <VStack spacing={3} position="relative" w="full">
               <Heading 
                 color="white" 
                 size="2xl"
-                textShadow="0 2px 4px rgba(0,0,0,0.3)"
                 bgGradient="linear(to-r, blue.400, purple.500)"
                 textAlign="center"
                 bgClip="text"
               >
                 Multiplayer Bingo
-                <Text
-                  fontSize="md"
-                  color="gray.400"
-                  fontWeight="normal"
-                  textAlign="center"
-                  mt={2}
-                >
-                  Beta Version - Improvements Coming Soon
-                </Text>
               </Heading>
               <Text
                 color="gray.300"
                 fontSize="lg"
                 textAlign="center"
                 maxW="md"
+                mb={2}
               >
                 Challenge your friends in a game of football knowledge!
               </Text>
+
+              {/* Enhanced Rules Button - New positioning and text */}
+              <Button
+                leftIcon={<QuestionIcon boxSize="5" />}
+                onClick={onOpen}
+                size="md"
+                px={6}
+                height="40px"
+                fontSize="sm"
+                fontWeight="bold"
+                letterSpacing="wider"
+                bg="rgba(255, 255, 255, 0.1)"
+                color="white"
+                border="1px solid rgba(255,255,255,0.2)"
+                borderRadius="xl"
+                transition="all 0.3s ease"
+                _hover={{
+                  bg: "rgba(255, 255, 255, 0.2)",
+                  transform: "translateY(-2px)",
+                  boxShadow: "0 4px 12px rgba(148, 163, 184, 0.2)",
+                  border: "1px solid rgba(255,255,255,0.4)"
+                }}
+                _active={{
+                  transform: "translateY(0)",
+                  boxShadow: "none",
+                  bg: "rgba(255, 255, 255, 0.15)"
+                }}
+                _focus={{
+                  boxShadow: "0 0 0 3px rgba(66, 153, 225, 0.6)"
+                }}
+                sx={{
+                  "@keyframes pulse": {
+                    "0%": { boxShadow: "0 0 0 0 rgba(255, 255, 255, 0.4)" },
+                    "70%": { boxShadow: "0 0 0 10px rgba(255, 255, 255, 0)" },
+                    "100%": { boxShadow: "0 0 0 0 rgba(255, 255, 255, 0)" }
+                  },
+                  animation: "pulse 2s infinite"
+                }}
+              >
+                REGULI
+              </Button>
             </VStack>
             
             {/* Main Card */}
@@ -1500,6 +1545,77 @@ function MultiplayerBingoGame() {
             </Box>
           </VStack>
         </Container>
+
+        {/* Rules Modal */}
+        <Modal isOpen={isOpen} onClose={onClose} size="4xl">
+          <ModalOverlay backdropFilter="blur(10px)" />
+          <ModalContent
+            bg="rgba(0, 0, 0, 0.9)"
+            border="1px solid rgba(255,255,255,0.1)"
+            borderRadius="xl"
+            boxShadow="0 4px 30px rgba(0, 0, 0, 0.3)"
+            mx={4}
+            p={3}
+          >
+            <ModalHeader color="white">Reguli</ModalHeader>
+            <ModalCloseButton color="white" />
+            <ModalBody pb={6}>
+              <Grid 
+                templateColumns={['1fr', '1fr', '1fr 1fr']} 
+                gap={4} 
+                w="full"
+                fontSize="md"
+                color="gray.300"
+              >
+                {/* Left Column */}
+                <VStack align="start" spacing={4}>
+                  <Box>
+                    <Text fontWeight="semibold" color="white">1. Cum se joaca:</Text>
+                    <Text pl={4}>• Vei primi un numar de jucatori de fotbal</Text>
+                    <Text pl={4}>• Trebuie sa alegi o categorie in care se incadreaza</Text>
+                    <Text pl={4}>• Daca alegerea e corecta, primesti un punct din cele 16 disponibile</Text>
+                  </Box>
+
+                  <Box>
+                    <Text fontWeight="semibold" color="white">2. Modul de joc:</Text>
+                    <Text pl={4}>• Contra-Timp: 10 secunde pentru fiecare alegere</Text>
+                    <Text pl={4}>• In modul Contra-Timp, daca timpul expira pierzi jucatorul si se trece mai departe</Text>
+                  </Box>
+                </VStack>
+
+                {/* Right Column */}
+                <VStack align="start" spacing={4}>
+                  <Box>
+                    <Text fontWeight="semibold" color="white">3. Optiuni speciale:</Text>
+                    <Text pl={4}>• Wild Card (steaua galbena) - foloseste-l pentru jucatori care se potrivesc in mai multe categorii</Text>
+                    <Text pl={4}>• Skip - treci peste jucatorul curent, fara a alege o categorie</Text>
+                  </Box>
+
+                  <Box>
+                    <Text fontWeight="semibold" color="white">4. Sfaturi importante:</Text>
+                    <Text pl={4}>• Categoria "played with" se refera doar la colegi de club - nu de echipa nationala</Text>
+                    <Text pl={4}>• Pastreaza Wild Card-ul pentru jucatorii cu multe realizari</Text>
+                    <Text pl={4}>• Foloseste Skip cand nu esti sigur de nicio categorie</Text>
+                  </Box>
+                </VStack>
+              </Grid>
+
+              {/* Centered Objective Text */}
+              <Box mt={6} textAlign="center">
+                <Text 
+                  fontStyle="italic" 
+                  color="yellow.200"
+                  fontSize="md"
+                  maxW="800px"
+                  mx="auto"
+                  px={4}
+                >
+                  Obiectiv: Completeaza cat mai multe casute din cele 16 inainte sa ramai fara jucatori! Toate vor fi marcate cu verde, indicand ca ai confirmat alegerea dar punctele le vei vedea doar la finalul jocului!
+                </Text>
+              </Box>
+            </ModalBody>
+          </ModalContent>
+        </Modal>
       </Box>
     );
   }
