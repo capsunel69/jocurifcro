@@ -536,6 +536,12 @@ const GhicesteJucatorul = () => {
             </ModalHeader>
             <ModalBody pb={6} px={8}>
               <VStack spacing={4}>
+                <Image
+                  src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/player_images/${targetPlayer?.PlayerID}.png`}
+                  fallbackSrc="https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/placeholder.png"
+                  objectFit="fill"
+                  mb={2}
+                />
                 <Text>
                   {gameOver && targetPlayer?.Name === attempts[0]?.player.Name
                     ? `L-ai găsit pe ${targetPlayer.Name}!`
