@@ -182,13 +182,13 @@ const GhicesteJucatorul = () => {
     }
 
     const availableHints = [];
-    if (!correctGuesses.team) availableHints.push(`Acest jucator joaca la ${targetPlayer.Team}`);
-    if (!correctGuesses.position) availableHints.push(`Pozitia acestui jucator este ${mapPosition(targetPlayer.Position)}`);
-    if (!correctGuesses.nationality) availableHints.push(`Nationalitatea acestui jucator este ${targetPlayer.Nationality}`);
-    if (!correctGuesses.age) availableHints.push(`Varsta acestui jucator este ${getAge(targetPlayer.Age)}`);
-    if (!correctGuesses.number) availableHints.push(`Numarul acestui jucator este ${targetPlayer.Number}`);
+    if (!correctGuesses.team) availableHints.push({ type: 'team', text: `Acest jucator joaca la ${targetPlayer.Team}`, value: targetPlayer.Team, teamId: targetPlayer.TeamID });
+    if (!correctGuesses.position) availableHints.push({ type: 'position', text: `Pozitia acestui jucator este ${mapPosition(targetPlayer.Position)}`, value: mapPosition(targetPlayer.Position) });
+    if (!correctGuesses.nationality) availableHints.push({ type: 'nationality', text: `Nationalitatea acestui jucator este ${targetPlayer.Nationality}`, value: targetPlayer.Nationality });
+    if (!correctGuesses.age) availableHints.push({ type: 'age', text: `Varsta acestui jucator este ${getAge(targetPlayer.Age)}`, value: getAge(targetPlayer.Age) });
+    if (!correctGuesses.number) availableHints.push({ type: 'number', text: `Numarul acestui jucator este ${targetPlayer.Number}`, value: targetPlayer.Number });
 
-    const unusedHints = availableHints.filter(hint => !usedHints.has(hint));
+    const unusedHints = availableHints.filter(hint => !usedHints.has(hint.text));
 
     if (unusedHints.length === 0) {
       setHintText("Nu mai sunt indicii disponibile!");
@@ -196,8 +196,19 @@ const GhicesteJucatorul = () => {
     }
 
     const randomHint = unusedHints[Math.floor(Math.random() * unusedHints.length)];
-    setUsedHints(prev => new Set([...prev, randomHint]));
-    setHintText(randomHint);
+    setUsedHints(prev => new Set([...prev, randomHint.text]));
+    setHintText(randomHint.text);
+    
+    setCorrectGuesses(prev => ({
+      ...prev,
+      [randomHint.type]: {
+        type: randomHint.type,
+        actual: randomHint.value,
+        target: randomHint.value,
+        ...(randomHint.type === 'team' && { teamId: randomHint.teamId })
+      }
+    }));
+
     setHintsRemaining(prev => prev - 1);
     setRemainingGuesses(prev => prev - 1);
 
