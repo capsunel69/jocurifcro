@@ -87,6 +87,8 @@ const GhicesteJucatorul = () => {
     if (position.includes('right midfield')) return 'RW';
     if (position.includes('midfield')) return 'CM';
     if (position.includes('winger')) return 'W';
+    if (position.includes('left winger')) return 'W';
+    if (position.includes('right winger')) return 'W';
     if (position.includes('forward') || position.includes('striker')) return 'CF';
     return position;
   };
