@@ -1,4 +1,4 @@
-import { Container, VStack, Heading, useToast, Button, Text, HStack, Box, Stack, Grid, Menu, MenuButton, MenuList, MenuItem } from '@chakra-ui/react'
+import { Container, VStack, Heading, useToast, Button, Text, HStack, Box, Stack, Grid, Menu, MenuButton, MenuList, MenuItem, Image } from '@chakra-ui/react'
 import { useState, useEffect } from 'react'
 import { MdRefresh, MdShuffle } from 'react-icons/md'
 import BingoBoard from '../components/BingoBoard'
@@ -659,20 +659,45 @@ function BingoGame() {
                 boxShadow="0 4px 12px rgba(0, 0, 0, 0.3)"
                 border="1px solid rgba(255, 255, 255, 0.1)"
               >
-                <HStack justify="center" spacing={3} align="center">
-                  <Text 
-                    fontSize="2xl" 
-                    fontWeight="bold" 
-                    textAlign="center"
-                    color="white"
-                    textShadow="0 2px 4px rgba(0, 0, 0, 0.3)"
-                  >
-                    {currentPlayer ? `${currentPlayer.g} ${currentPlayer.f}` : 'No player selected'}
-                  </Text>
-                  {gameMode === 'timed' && (
-                    <Timer seconds={timeRemaining} onTimeUp={handleTimeUp} />
+                <VStack spacing={3}>
+                  {currentPlayer && (
+                    <Box
+                      w="80px"
+                      h="80px"
+                      borderRadius="full"
+                      overflow="hidden"
+                      border="2px solid white"
+                      boxShadow="0 2px 8px rgba(0, 0, 0, 0.3)"
+                    >
+                      <Image
+                        src={`https://cryptobully.s3.eu-north-1.amazonaws.com/bingo-players-imgs/${currentPlayer.id}.jpg`}
+                        alt={`${currentPlayer.g} ${currentPlayer.f}`}
+                        width="100%"
+                        height="100%"
+                        objectFit="cover"
+                        objectPosition="top center"
+                        onError={(e) => {
+                          // If image fails to load, use placeholder.jpg
+                          e.target.src = `https://cryptobully.s3.eu-north-1.amazonaws.com/placeholder.jpg`;
+                        }}
+                      />
+                    </Box>
                   )}
-                </HStack>
+                  <HStack justify="center" spacing={3} align="center">
+                    <Text 
+                      fontSize="2xl" 
+                      fontWeight="bold" 
+                      textAlign="center"
+                      color="white"
+                      textShadow="0 2px 4px rgba(0, 0, 0, 0.3)"
+                    >
+                      {currentPlayer ? `${currentPlayer.g} ${currentPlayer.f}` : 'No player selected'}
+                    </Text>
+                    {gameMode === 'timed' && (
+                      <Timer seconds={timeRemaining} onTimeUp={handleTimeUp} />
+                    )}
+                  </HStack>
+                </VStack>
               </Box>
 
               <GameControls 
