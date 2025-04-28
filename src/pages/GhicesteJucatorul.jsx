@@ -20,11 +20,14 @@ import {
   ListItem,
   useToast,
   UnorderedList,
+  IconButton,
 } from '@chakra-ui/react';
-import { FaRegSmile, FaMeh, FaSkull } from 'react-icons/fa';
+import { FaRegSmile, FaMeh, FaSkull, FaTimes } from 'react-icons/fa';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 const GhicesteJucatorul = () => {
+  const navigate = useNavigate();
   const [players, setPlayers] = useState([]);
   const [targetPlayer, setTargetPlayer] = useState(null);
   const [remainingGuesses, setRemainingGuesses] = useState(8);
@@ -36,20 +39,63 @@ const GhicesteJucatorul = () => {
   const [attempts, setAttempts] = useState([]);
   const [hintText, setHintText] = useState('');
   const [correctGuesses, setCorrectGuesses] = useState({});
-  const { isOpen: isDifficultyOpen, onClose: onDifficultyClose, onOpen: onDifficultyOpen } = useDisclosure({ defaultIsOpen: true });
+  const [selectedLeague, setSelectedLeague] = useState(null);
+  const { isOpen: isLeagueOpen, onClose: onLeagueClose, onOpen: onLeagueOpen } = useDisclosure({ defaultIsOpen: true });
+  const { isOpen: isDifficultyOpen, onClose: onDifficultyClose, onOpen: onDifficultyOpen } = useDisclosure();
   const { isOpen: isGameOverOpen, onOpen: onGameOverOpen, onClose: onGameOverClose } = useDisclosure();
   const [iframeLoaded, setIframeLoaded] = useState(false);
   
   const toast = useToast();
   const dropdownRef = useRef(null);
 
+  const leagues = [
+    { 
+      id: 'superliga', 
+      name: 'Superliga României', 
+      icon: '🇷🇴',
+      image: 'https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/leagues+images/superliga.jpg'
+    },
+    { 
+      id: 'premier_league', 
+      name: 'Premier League', 
+      icon: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+      image: 'https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/leagues+images/premier_league.png'
+    },
+    { 
+      id: 'la_liga', 
+      name: 'La Liga', 
+      icon: '🇪🇸',
+      image: 'https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/leagues+images/la_liga.png'
+    },
+    { 
+      id: 'bundesliga', 
+      name: 'Bundesliga', 
+      icon: '🇩🇪',
+      image: 'https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/leagues+images/bundesliga.jpg'
+    },
+    { 
+      id: 'seria_a', 
+      name: 'Serie A', 
+      icon: '🇮🇹',
+      image: 'https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/leagues+images/seria_a.jpg'
+    },
+    { 
+      id: 'ligue_1', 
+      name: 'Ligue 1', 
+      icon: '🇫🇷',
+      image: 'https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/leagues+images/ligue_1.png'
+    }
+  ];
+
   useEffect(() => {
-    fetchPlayers();
-  }, []);
+    if (selectedLeague) {
+      fetchPlayers();
+    }
+  }, [selectedLeague]);
 
   const fetchPlayers = async () => {
     try {
-      const response = await fetch('https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/superliga_players.json');
+      const response = await fetch(`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/${selectedLeague}/${selectedLeague}.json`);
       const data = await response.json();
       setPlayers(data);
     } catch (error) {
@@ -226,11 +272,95 @@ const GhicesteJucatorul = () => {
     setShowDropdown(true);
   };
 
+  const getPlayerImagePath = (player) => {
+    if (!player || !selectedLeague) return 'https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/placeholder.png';
+    
+    // Convert player name to lowercase and replace spaces with underscores
+    const formattedName = player.Name.toLowerCase().replace(/\s+/g, '_');
+    // Convert team name to lowercase and replace spaces with underscores
+    const formattedTeam = player.Team.toLowerCase().replace(/\s+/g, '_');
+    
+    return `https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/${selectedLeague}/player_images/${player.Image}`;
+  };
+
+  const handleLeagueSelect = (leagueId) => {
+    setSelectedLeague(leagueId);
+    onLeagueClose();
+    onDifficultyOpen();
+  };
+
   return (
     <Box minH="100vh" color="white" px={4}>
       <Container maxW="750px" py={12} mt={8} mb={8}>
         <VStack spacing={6}>
-          <Heading size="xl">Ghiceste Jucatorul</Heading>
+          <VStack>
+            <Heading size="xl">Ghiceste Jucatorul</Heading>
+            {selectedLeague && (
+              <Text fontSize="lg" color="yellow.400">
+                {leagues.find(l => l.id === selectedLeague)?.name}
+              </Text>
+            )}
+          </VStack>
+
+          {/* League Selection Modal */}
+          <Modal isOpen={isLeagueOpen} onClose={onLeagueClose} isCentered closeOnOverlayClick={false}>
+            <ModalOverlay />
+            <ModalContent bg="gray.800" color="white" mx={2} maxW="400px">
+              <ModalHeader textAlign="center" position="relative">
+                Alege Liga
+                <IconButton
+                  aria-label="Close modal"
+                  icon={<FaTimes />}
+                  position="absolute"
+                  right={2}
+                  top={2}
+                  variant="ghost"
+                  colorScheme="whiteAlpha"
+                  onClick={() => navigate('/')}
+                />
+              </ModalHeader>
+              <ModalBody pb={6}>
+                <VStack spacing={4}>
+                  {leagues.map((league) => (
+                    <Button
+                      key={league.id}
+                      w="100%"
+                      h="auto"
+                      p={3}
+                      variant="unstyled"
+                      onClick={() => handleLeagueSelect(league.id)}
+                      _hover={{ bg: "whiteAlpha.100" }}
+                      transition="all 0.2s"
+                      borderRadius="lg"
+                      border="1px solid"
+                      borderColor="whiteAlpha.200"
+                    >
+                      <Flex w="100%" align="center" gap={4}>
+                        <Box
+                          w="50px"
+                          h="50px"
+                          borderRadius="full"
+                          overflow="hidden"
+                          flexShrink={0}
+                        >
+                          <Image
+                            src={league.image}
+                            alt={league.name}
+                            w="100%"
+                            h="100%"
+                            objectFit="cover"
+                          />
+                        </Box>
+                        <Text fontSize="md" fontWeight="medium">
+                          {league.name}
+                        </Text>
+                      </Flex>
+                    </Button>
+                  ))}
+                </VStack>
+              </ModalBody>
+            </ModalContent>
+          </Modal>
 
           <Box position="relative" w="100%">
             <Input
@@ -271,7 +401,7 @@ const GhicesteJucatorul = () => {
                     >
                       <Flex alignItems="center">
                         <Image
-                          src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/player_images/${player.PlayerID}.png`}
+                          src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/${selectedLeague}/player_images/${player.Image}`}
                           fallbackSrc="https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/placeholder.png"
                           boxSize="40px"
                           borderRadius="full"
@@ -281,7 +411,7 @@ const GhicesteJucatorul = () => {
                         <Text>{player.Name}</Text>
                       </Flex>
                       <Image
-                        src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/team_logos/${player.TeamID}.png`}
+                        src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/${selectedLeague}/team_logos/${player.TeamID}.png`}
                         h="30px"
                         w="30px"
                         objectFit="contain"
@@ -316,7 +446,7 @@ const GhicesteJucatorul = () => {
                   >
                     {type === 'team' ? (
                       <Image
-                        src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/team_logos/${comparison.teamId}.png`}
+                        src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/${selectedLeague}/team_logos/${comparison.teamId}.png`}
                         h="20px"
                         w="20px"
                         objectFit="contain"
@@ -394,7 +524,7 @@ const GhicesteJucatorul = () => {
                   borderRadius="md"
                 >
                   <Image
-                    src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/player_images/${attempt.player.PlayerID}.png`}
+                    src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/${selectedLeague}/player_images/${attempt.player.Image}`}
                     fallbackSrc="https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/placeholder.png"
                     boxSize="40px"
                     borderRadius="full"
@@ -441,7 +571,7 @@ const GhicesteJucatorul = () => {
                     >
                       {comparison.type === 'team' ? (
                         <Image
-                          src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/team_logos/${comparison.teamId}.png`}
+                          src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/${selectedLeague}/team_logos/${comparison.teamId}.png`}
                           fallbackSrc="https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/placeholder.png"
                           h={{base: "20px", sm: "30px"}}
                           w={{base: "20px", sm: "30px"}}
@@ -483,7 +613,6 @@ const GhicesteJucatorul = () => {
               Regulile Jocului
             </Heading>
             <UnorderedList spacing={3}>
-              <ListItem>doar jucatori din Superliga (momentan)</ListItem>
               <ListItem>ai 8 incercari pentru a ghici fotbalistul</ListItem>
               <ListItem>poti folosi 3 indicii, dar fiecare va costa o incercare</ListItem>
               <ListItem>
@@ -497,12 +626,41 @@ const GhicesteJucatorul = () => {
               </ListItem>
             </UnorderedList>
           </Box>
+
+          <Button
+            w="100%"
+            variant="ghost"
+            colorScheme="whiteAlpha"
+            size="md"
+            onClick={() => window.location.reload()}
+            mt={4}
+            _hover={{ bg: 'whiteAlpha.200' }}
+            transition="all 0.2s"
+            fontSize="sm"
+            border="1px solid"
+            borderColor="whiteAlpha.300"
+          >
+            Restart Game
+          </Button>
+
         </VStack>
 
         <Modal isOpen={isDifficultyOpen} onClose={onDifficultyClose} isCentered closeOnOverlayClick={false}>
           <ModalOverlay />
           <ModalContent bg="gray.800" color="white" mx={2}>
-            <ModalHeader>Alege Dificultatea</ModalHeader>
+            <ModalHeader textAlign="center" position="relative">
+              Alege Dificultatea
+              <IconButton
+                aria-label="Close modal"
+                icon={<FaTimes />}
+                position="absolute"
+                right={2}
+                top={2}
+                variant="ghost"
+                colorScheme="whiteAlpha"
+                onClick={() => navigate('/')}
+              />
+            </ModalHeader>
             <ModalBody pb={6}>
               <VStack spacing={4}>
                 <Button
@@ -550,7 +708,7 @@ const GhicesteJucatorul = () => {
             <ModalBody pb={6} px={8}>
               <VStack spacing={4}>
                 <Image
-                  src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/player_images/${targetPlayer?.PlayerID}.png`}
+                  src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/${selectedLeague}/player_images/${targetPlayer?.Image}`}
                   fallbackSrc="https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/placeholder.png"
                   objectFit="fill"
                   mb={2}
@@ -595,7 +753,7 @@ const GhicesteJucatorul = () => {
                 </Box>
                 <Button colorScheme="green" onClick={() => {
                   onGameOverClose();
-                  onDifficultyOpen();
+                  onLeagueOpen();
                 }}>
                   Joacă din nou
                 </Button>
