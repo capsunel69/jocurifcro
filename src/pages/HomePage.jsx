@@ -85,7 +85,7 @@ function HomePage() {
       gradient: "linear(to-r, yellow.400, orange.400)"
     },
     {
-      title: "Ghiceste Jucatorul",
+      title: "Ghiceste Jucatorul - Liga I",
       description: "Porneste intr-o aventura plina de mister si descopera identitatea fotbalistului ascuns folosind indiciile disponibile!",
       image: "/images/ghiceste.webp",
       icon: FaUserSecret,
@@ -93,7 +93,7 @@ function HomePage() {
       gradient: "linear(to-r, purple.400, blue.400)"
     },
     {
-      title: "Top 5 Ligi",
+      title: "Ghiceste Jucatorul - Top 5 Ligi",
       description: "Ghiceste fotbalistii din cele mai importante ligi europene intr-un joc captivant care iti pune la incercare cunostintele despre fotbal!",
       image: "/images/top-5.webp",
       icon: FaTrophy,
