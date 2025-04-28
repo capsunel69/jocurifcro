@@ -36,8 +36,8 @@ const GameCard = ({ game, onPlay, priority }) => (
     />
     <Box p={8}>
       <HStack spacing={4} mb={4}>
-        <Icon as={game.icon} boxSize={6} color="yellow.400" />
-        <Heading size="lg" color="whiteAlpha.900">
+        <Icon as={game.icon} boxSize={5} color="yellow.400" />
+        <Heading size="md" color="whiteAlpha.900">
           {game.title}
         </Heading>
       </HStack>
