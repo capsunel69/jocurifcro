@@ -1,6 +1,6 @@
 import { Container, VStack, Heading, Text, Button, SimpleGrid, Box, Image, Icon, HStack } from '@chakra-ui/react'
 import { useNavigate } from 'react-router-dom'
-import { FaDice, FaUserSecret, FaArrowRight } from 'react-icons/fa'
+import { FaDice, FaUserSecret, FaArrowRight, FaTrophy } from 'react-icons/fa'
 
 // New GameCard component
 const GameCard = ({ game, onPlay, priority }) => (
@@ -30,8 +30,8 @@ const GameCard = ({ game, onPlay, priority }) => (
       w="full"
       objectFit="cover"
       loading={priority ? "eager" : "lazy"}
-      sizes="(max-width: 768px) 100vw, 33vw"
-      width={400}
+      sizes="(max-width: 768px) 100vw, 50vw"
+      width="100%"
       height={240}
     />
     <Box p={8}>
@@ -91,6 +91,14 @@ function HomePage() {
       icon: FaUserSecret,
       path: "/ghiceste-jucatorul",
       gradient: "linear(to-r, purple.400, blue.400)"
+    },
+    {
+      title: "Top 5 Ligi",
+      description: "Ghiceste fotbalistii din cele mai importante ligi europene intr-un joc captivant care iti pune la incercare cunostintele despre fotbal!",
+      image: "/images/top-5.webp",
+      icon: FaTrophy,
+      path: "/top-5",
+      gradient: "linear(to-r, red.400, pink.400)"
     }
   ]
 
@@ -100,7 +108,7 @@ function HomePage() {
       borderRadius={{ base: 0, md: "xl" }}
     >
       <Container 
-        maxW="1600px" 
+        maxW="1200px" 
         px={{ base: 0, md: 6 }}
         borderRadius={{ base: 0, md: "xl" }}
       >
@@ -121,11 +129,11 @@ function HomePage() {
 
           {/* Updated Games Grid */}
           <SimpleGrid 
-            columns={{ base: 1, lg: 3 }} 
+            columns={{ base: 1, lg: 2 }} 
             spacing={8} 
             w="full"
             px={{ base: 4, md: 8 }}
-            maxW="1600px"
+            maxW="1200px"
             mx="auto"
           >
             {games.map((game, index) => (

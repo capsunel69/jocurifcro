@@ -6,6 +6,7 @@ import { useLocation } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import BingoGame from './pages/BingoGame'
 import GhicesteJucatorul from './pages/GhicesteJucatorul'
+import GhicesteJucatorulEuropa from './pages/GhicesteJucatorulEuropa'
 import Subscribe from './pages/Subscribe'
 import ConfirmSubscribe from './pages/ConfirmSubscribe'
 import NotFoundPage from './pages/NotFound'
@@ -54,6 +55,7 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/bingo" element={<BingoGame />} />
             <Route path="/ghiceste-jucatorul" element={<GhicesteJucatorul />} />
+            <Route path="/top-5" element={<GhicesteJucatorulEuropa />} />
             <Route path="/subscribe" element={<Subscribe />} />
             <Route path="/confirm-subscribe" element={<ConfirmSubscribe />} />
             <Route path="/multiplayer-bingo" element={<MultiplayerBingoGame />} />

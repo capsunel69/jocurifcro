@@ -26,7 +26,7 @@ import { FaRegSmile, FaMeh, FaSkull, FaTimes } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
-const GhicesteJucatorul = () => {
+const GhicesteJucatorulEuropa = () => {
   const navigate = useNavigate();
   const [players, setPlayers] = useState([]);
   const [targetPlayer, setTargetPlayer] = useState(null);
@@ -46,15 +46,58 @@ const GhicesteJucatorul = () => {
   const toast = useToast();
   const dropdownRef = useRef(null);
 
+  const leagues = [
+    { 
+      id: 'premier_league', 
+      name: 'Premier League', 
+      icon: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+      image: 'https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/leagues+images/premier_league.png'
+    },
+    { 
+      id: 'la_liga', 
+      name: 'La Liga', 
+      icon: '🇪🇸',
+      image: 'https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/leagues+images/la_liga.png'
+    },
+    { 
+      id: 'bundesliga', 
+      name: 'Bundesliga', 
+      icon: '🇩🇪',
+      image: 'https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/leagues+images/bundesliga.jpg'
+    },
+    { 
+      id: 'seria_a', 
+      name: 'Serie A', 
+      icon: '🇮🇹',
+      image: 'https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/leagues+images/seria_a.jpg'
+    },
+    { 
+      id: 'ligue_1', 
+      name: 'Ligue 1', 
+      icon: '🇫🇷',
+      image: 'https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/leagues+images/ligue_1.png'
+    }
+  ];
+
   useEffect(() => {
     fetchPlayers();
   }, []);
 
   const fetchPlayers = async () => {
     try {
-      const response = await fetch('https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/superliga/superliga.json');
-      const data = await response.json();
-      setPlayers(data);
+      const allPlayers = [];
+      for (const league of leagues) {
+        const response = await fetch(`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/${league.id}/${league.id}.json`);
+        const data = await response.json();
+        // Add league information to each player
+        const playersWithLeague = data.map(player => ({
+          ...player,
+          League: league.name,
+          LeagueID: league.id
+        }));
+        allPlayers.push(...playersWithLeague);
+      }
+      setPlayers(allPlayers);
     } catch (error) {
       console.error('Error fetching players:', error);
       toast({
@@ -147,7 +190,8 @@ const GhicesteJucatorul = () => {
         { type: 'position', actual: mapPosition(guessedPlayer.Position), target: mapPosition(targetPlayer.Position) },
         { type: 'nationality', actual: guessedPlayer.Nationality, target: targetPlayer.Nationality },
         { type: 'number', actual: guessedPlayer.Number, target: targetPlayer.Number },
-        { type: 'age', actual: getAge(guessedPlayer.Age), target: getAge(targetPlayer.Age) }
+        { type: 'age', actual: getAge(guessedPlayer.Age), target: getAge(targetPlayer.Age) },
+        { type: 'league', actual: guessedPlayer.League, target: targetPlayer.League, leagueId: guessedPlayer.LeagueID }
       ]
     };
 
@@ -190,6 +234,7 @@ const GhicesteJucatorul = () => {
     if (!correctGuesses.nationality) availableHints.push({ type: 'nationality', text: `Nationalitatea acestui jucator este ${targetPlayer.Nationality}`, value: targetPlayer.Nationality });
     if (!correctGuesses.age) availableHints.push({ type: 'age', text: `Varsta acestui jucator este ${getAge(targetPlayer.Age)}`, value: getAge(targetPlayer.Age) });
     if (!correctGuesses.number) availableHints.push({ type: 'number', text: `Numarul acestui jucator este ${targetPlayer.Number}`, value: targetPlayer.Number });
+    if (!correctGuesses.league) availableHints.push({ type: 'league', text: `Acest jucator joaca in ${targetPlayer.League}`, value: targetPlayer.League, leagueId: targetPlayer.LeagueID });
 
     const unusedHints = availableHints.filter(hint => !usedHints.has(hint.text));
 
@@ -208,7 +253,8 @@ const GhicesteJucatorul = () => {
         type: randomHint.type,
         actual: randomHint.value,
         target: randomHint.value,
-        ...(randomHint.type === 'team' && { teamId: randomHint.teamId })
+        ...(randomHint.type === 'team' && { teamId: randomHint.teamId }),
+        ...(randomHint.type === 'league' && { leagueId: randomHint.leagueId })
       }
     }));
 
@@ -231,13 +277,7 @@ const GhicesteJucatorul = () => {
 
   const getPlayerImagePath = (player) => {
     if (!player) return 'https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/placeholder.png';
-    
-    // Convert player name to lowercase and replace spaces with underscores
-    const formattedName = player.Name.toLowerCase().replace(/\s+/g, '_');
-    // Convert team name to lowercase and replace spaces with underscores
-    const formattedTeam = player.Team.toLowerCase().replace(/\s+/g, '_');
-    
-    return `https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/superliga/player_images/${player.Image}`;
+    return `https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/${player.LeagueID}/player_images/${player.Image}`;
   };
 
   return (
@@ -247,7 +287,7 @@ const GhicesteJucatorul = () => {
           <VStack>
             <Heading size="xl">Ghiceste Jucatorul</Heading>
             <Text fontSize="lg" color="yellow.400">
-              Superliga României
+              TOP 5 LIGI
             </Text>
           </VStack>
 
@@ -300,7 +340,7 @@ const GhicesteJucatorul = () => {
                         <Text>{player.Name}</Text>
                       </Flex>
                       <Image
-                        src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/superliga/team_logos/${player.TeamID}.png`}
+                        src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/${player.LeagueID}/team_logos/${player.TeamID}.png`}
                         h="30px"
                         w="30px"
                         objectFit="contain"
@@ -335,16 +375,16 @@ const GhicesteJucatorul = () => {
                   >
                     {type === 'team' ? (
                       <Image
-                        src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/superliga/team_logos/${comparison.teamId}.png`}
-                        h="20px"
-                        w="20px"
+                        src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/${targetPlayer.LeagueID}/team_logos/${comparison.teamId}.png`}
+                        h="35px"
+                        w="35px"
                         objectFit="contain"
                       />
                     ) : type === 'league' ? (
                       <Image
                         src={leagues.find(l => l.id === comparison.leagueId)?.image}
-                        h="20px"
-                        w="20px"
+                        h="30px"
+                        w="30px"
                         borderRadius="full"
                         objectFit="cover"
                       />
@@ -376,7 +416,11 @@ const GhicesteJucatorul = () => {
                           {comparison.actual}
                           {(comparison.type === 'age' || comparison.type === 'number') && 
                             comparison.actual !== comparison.target && (
-                              <Text as="span" ml={1}>
+                              <Text 
+                                as="span" 
+                                ml={1}
+                                color={Number(comparison.actual) < Number(comparison.target) ? "green.300" : "red.300"}
+                              >
                                 {Number(comparison.actual) < Number(comparison.target) ? '↑' : '↓'}
                               </Text>
                             )
@@ -410,7 +454,7 @@ const GhicesteJucatorul = () => {
           {attempts.length > 0 && (
             <Grid
               w="100%"
-              templateColumns={{base: "repeat(5, 1fr)", sm: "repeat(5, 1fr)"}}
+              templateColumns={{base: "repeat(6, 1fr)", sm: "repeat(6, 1fr)"}}
               gap={{base: 2, sm: 4}}
               bg="whiteAlpha.100"
               p={{base: 2, sm: 4}}
@@ -423,6 +467,7 @@ const GhicesteJucatorul = () => {
               <Text>NAT</Text>
               <Text>NO</Text>
               <Text>AGE</Text>
+              <Text>LEAGUE</Text>
             </Grid>
           )}
 
@@ -457,7 +502,7 @@ const GhicesteJucatorul = () => {
                   </Text>
                 </Flex>
                 <Grid
-                  templateColumns={{base: "repeat(5, 1fr)", sm: "repeat(5, 1fr)"}}
+                  templateColumns={{base: "repeat(6, 1fr)", sm: "repeat(6, 1fr)"}}
                   gap={{base: 2, sm: 4}}
                   w="100%"
                   bg="whiteAlpha.100"
@@ -492,7 +537,7 @@ const GhicesteJucatorul = () => {
                     >
                       {comparison.type === 'team' ? (
                         <Image
-                          src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/superliga/team_logos/${comparison.teamId}.png`}
+                          src={`https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/${attempt.player.LeagueID}/team_logos/${comparison.teamId}.png`}
                           fallbackSrc="https://cryptobully.s3.eu-north-1.amazonaws.com/fotbal-comedie/placeholder.png"
                           h={{base: "20px", sm: "30px"}}
                           w={{base: "20px", sm: "30px"}}
@@ -696,4 +741,4 @@ const GhicesteJucatorul = () => {
   );
 };
 
-export default GhicesteJucatorul;
+export default GhicesteJucatorulEuropa;

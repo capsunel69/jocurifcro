@@ -1,6 +1,6 @@
-import { Box, Flex, Image, Spacer, Link, Text, IconButton, useDisclosure, Drawer, DrawerBody, DrawerHeader, DrawerOverlay, DrawerContent, DrawerCloseButton, Stack } from '@chakra-ui/react'
+import { Box, Flex, Image, Spacer, Link, Text, IconButton, useDisclosure, Drawer, DrawerBody, DrawerHeader, DrawerOverlay, DrawerContent, DrawerCloseButton, Stack, Badge } from '@chakra-ui/react'
 import { keyframes } from '@emotion/react'
-import { FaDice, FaUserSecret, FaEnvelope, FaBars, FaNetworkWired } from 'react-icons/fa'
+import { FaDice, FaUserSecret, FaEnvelope, FaBars, FaNetworkWired, FaTrophy } from 'react-icons/fa'
 import { useLocation } from 'react-router-dom'
 
 const fadeIn = keyframes`
@@ -16,6 +16,7 @@ const Header = () => {
         { href: '/bingo', icon: FaDice, text: 'Bingo' },
         { href: '/multiplayer-bingo', icon: FaNetworkWired, text: 'Multiplayer Bingo' },
         { href: '/ghiceste-jucatorul', icon: FaUserSecret, text: 'Ghiceste Jucatorul' },
+        { href: '/top-5', icon: FaTrophy, text: 'Top 5 Ligi', isNew: true },
         { href: '/subscribe', icon: FaEnvelope, text: 'Aboneaza-te' }
     ]
 
@@ -76,19 +77,19 @@ const Header = () => {
                 </Link>
                 <Spacer />
                 {/* Desktop Menu */}
-                <Flex gap={4} display={{ base: 'none', md: 'flex' }}>
+                <Flex gap={2} display={{ base: 'none', md: 'flex' }}>
                     {menuItems.map((item, index) => (
                         <Link 
                             key={index}
                             href={item.disabled ? '#' : item.href}
                             display="flex"
                             alignItems="center"
-                            gap={2}
-                            px={4}
-                            py={2.5}
+                            gap={1.5}
+                            px={3}
+                            py={1.5}
                             borderRadius="xl"
                             color={item.disabled ? "gray.500" : (location.pathname === item.href ? "yellow.400" : "whiteAlpha.900")}
-                            fontSize="sm"
+                            fontSize="xs"
                             fontWeight="500"
                             transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
                             position="relative"
@@ -114,8 +115,20 @@ const Header = () => {
                                 }
                             }}
                         >
-                            <item.icon size={18} />
+                            <item.icon size={16} />
                             {item.text}
+                            {item.isNew && (
+                                <Badge 
+                                    ml={2} 
+                                    colorScheme="yellow" 
+                                    fontSize="xs" 
+                                    px={1.5} 
+                                    py={0.5} 
+                                    borderRadius="md"
+                                >
+                                    NEW
+                                </Badge>
+                            )}
                         </Link>
                     ))}
                 </Flex>
@@ -143,20 +156,20 @@ const Header = () => {
                             <Text color="white">Menu</Text>
                         </DrawerHeader>
                         <DrawerBody>
-                            <Stack spacing={4} mt={4}>
+                            <Stack spacing={2} mt={4}>
                                 {menuItems.map((item, index) => (
                                     <Link
                                         key={index}
                                         href={item.disabled ? '#' : item.href}
                                         display="flex"
                                         alignItems="center"
-                                        gap={2}
-                                        px={4}
-                                        py={2.5}
+                                        gap={1.5}
+                                        px={3}
+                                        py={1.5}
                                         borderRadius="lg"
                                         color={item.disabled ? "gray.500" : (location.pathname === item.href ? "yellow.400" : "whiteAlpha.900")}
                                         bg={location.pathname === item.href ? "whiteAlpha.100" : "transparent"}
-                                        fontSize="sm"
+                                        fontSize="xs"
                                         fontWeight="500"
                                         transition="all 0.2s"
                                         cursor={item.disabled ? "not-allowed" : "pointer"}
@@ -167,8 +180,20 @@ const Header = () => {
                                         }}
                                         onClick={onClose}
                                     >
-                                        <item.icon size={18} />
+                                        <item.icon size={16} />
                                         {item.text}
+                                        {item.isNew && (
+                                            <Badge 
+                                                ml={2} 
+                                                colorScheme="yellow" 
+                                                fontSize="xs" 
+                                                px={1.5} 
+                                                py={0.5} 
+                                                borderRadius="md"
+                                            >
+                                                NEW
+                                            </Badge>
+                                        )}
                                     </Link>
                                 ))}
                             </Stack>
