@@ -1,5 +1,5 @@
 import { Container, VStack, Heading, useToast, Button, Text, HStack, Box, Stack, Grid, Menu, MenuButton, MenuList, MenuItem, Image } from '@chakra-ui/react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { MdRefresh, MdShuffle } from 'react-icons/md'
 import BingoBoard from '../components/BingoBoard'
 import GameControls from '../components/GameControls'
@@ -33,7 +33,9 @@ function BingoGame() {
   const [maxAvailablePlayers, setMaxAvailablePlayers] = useState(null)
   const [iframeLoaded, setIframeLoaded] = useState(false)
   const [showSkipAnimation, setShowSkipAnimation] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const toast = useToast()
+  const menuListRef = useRef(null)
 
   // Add these lines after your existing state declarations
   const correctSound = new Audio('/sfx/correct_answer.mp3')
@@ -101,6 +103,24 @@ function BingoGame() {
     }
     return () => clearInterval(timerInterval)
   }, [gameState, gameMode, timeRemaining])
+
+  // Add this useEffect after your other useEffects
+  useEffect(() => {
+    if (menuListRef.current && currentCard && isMenuOpen) {
+      const currentCardElement = menuListRef.current.querySelector(`[data-card-id="${currentCard.id}"]`)
+      if (currentCardElement) {
+        const menuListHeight = menuListRef.current.clientHeight
+        const cardHeight = currentCardElement.offsetHeight
+        const cardOffset = currentCardElement.offsetTop
+        const scrollPosition = cardOffset - (menuListHeight / 2) + (cardHeight / 2)
+        
+        menuListRef.current.scrollTo({
+          top: scrollPosition,
+          behavior: 'smooth'
+        })
+      }
+    }
+  }, [currentCard, isMenuOpen])
 
   // Modify getRandomCard to handle the new structure
   const getRandomCard = () => {
@@ -592,7 +612,27 @@ function BingoGame() {
                     <Text as="span" color="gray.400"> / {maxAvailablePlayers}</Text>
                   </Text>
                 </Box>
-                <Menu>
+                <Menu 
+                  onOpen={() => {
+                    // Force a re-render to ensure menu is fully mounted
+                    requestAnimationFrame(() => {
+                      if (menuListRef.current && currentCard) {
+                        const currentCardElement = menuListRef.current.querySelector(`[data-card-id="${currentCard.id}"]`)
+                        if (currentCardElement) {
+                          const menuListHeight = menuListRef.current.clientHeight
+                          const cardHeight = currentCardElement.offsetHeight
+                          const cardOffset = currentCardElement.offsetTop
+                          const scrollPosition = cardOffset - (menuListHeight / 2) + (cardHeight / 2)
+                          
+                          menuListRef.current.scrollTo({
+                            top: scrollPosition,
+                            behavior: 'instant'
+                          })
+                        }
+                      }
+                    })
+                  }}
+                >
                   <MenuButton
                     as={Button}
                     size="xs"
@@ -610,6 +650,7 @@ function BingoGame() {
                     bg="gray.800"
                     borderColor="whiteAlpha.200"
                     boxShadow="lg"
+                    ref={menuListRef}
                     css={{
                       '&::-webkit-scrollbar': {
                         width: '8px',
@@ -631,9 +672,10 @@ function BingoGame() {
                       .map(card => (
                         <MenuItem
                           key={card.id}
+                          data-card-id={card.id}
                           onClick={() => handleModeSelect(gameMode === 'timed', false, card)}
                           color={card.id === currentCard?.id ? "brand.400" : "gray.100"}
-                          bg="transparent"
+                          bg={card.id === currentCard?.id ? "whiteAlpha.100" : "transparent"}
                           fontWeight={card.id === currentCard?.id ? "bold" : "normal"}
                           _hover={{
                             bg: "whiteAlpha.200"
@@ -641,6 +683,17 @@ function BingoGame() {
                           _focus={{
                             bg: "whiteAlpha.200"
                           }}
+                          position="relative"
+                          _after={card.id === currentCard?.id ? {
+                            content: '""',
+                            position: "absolute",
+                            left: 0,
+                            top: 0,
+                            bottom: 0,
+                            width: "3px",
+                            bg: "brand.400",
+                            borderRadius: "sm"
+                          } : undefined}
                         >
                           Card #{card.id}
                         </MenuItem>
@@ -678,7 +731,7 @@ function BingoGame() {
                         objectPosition="top center"
                         onError={(e) => {
                           // If image fails to load, use placeholder.jpg
-                          e.target.src = `https://cryptobully.s3.eu-north-1.amazonaws.com/placeholder.jpg`;
+                          e.target.src = `https://cryptobully.s3.eu-north-1.amazonaws.com/bingo-players-imgs/placeholder.jpg`;
                         }}
                       />
                     </Box>

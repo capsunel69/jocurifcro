@@ -1962,7 +1962,7 @@ function MultiplayerBingoGame() {
                         objectPosition="top center"
                         onError={(e) => {
                           // If image fails to load, use placeholder.jpg
-                          e.target.src = `https://cryptobully.s3.eu-north-1.amazonaws.com/placeholder.jpg`;
+                          e.target.src = `https://cryptobully.s3.eu-north-1.amazonaws.com/bingo-players-imgs/placeholder.jpg`;
                         }}
                       />
                     </Box>
